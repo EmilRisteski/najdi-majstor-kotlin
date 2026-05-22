@@ -1,0 +1,154 @@
+package com.example.najdimajstor.navigation
+
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.Button
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
+import com.example.najdimajstor.ui.screens.auth.LoginScreen
+import com.example.najdimajstor.ui.screens.auth.RegisterScreen
+
+@Composable
+fun AppNavigation() {
+    val navController = rememberNavController()
+
+    NavHost(
+        navController = navController,
+        startDestination = Screen.Login.route
+    ) {
+        composable(Screen.Login.route) {
+            LoginScreen(
+                onLoginClick = {
+                    navController.navigate(Screen.Home.route) {
+                        popUpTo(Screen.Login.route) {
+                            inclusive = true
+                        }
+                    }
+                },
+                onRegisterClick = {
+                    navController.navigate(Screen.Register.route)
+                }
+            )
+        }
+
+        composable(Screen.Register.route) {
+            RegisterScreen(
+                onRegisterClick = {
+                    navController.navigate(Screen.Home.route) {
+                        popUpTo(Screen.Login.route) {
+                            inclusive = true
+                        }
+                    }
+                },
+                onLoginClick = {
+                    navController.popBackStack()
+                }
+            )
+        }
+
+        composable(Screen.Home.route) {
+            TemporaryScreen(
+                title = "Почетна",
+                subtitle = "Home screen",
+                primaryButtonText = "Отвори мајстор",
+                onPrimaryClick = {
+                    navController.navigate(Screen.HandymanDetails.createRoute("1"))
+                },
+                secondaryButtonText = "Мој профил",
+                onSecondaryClick = {
+                    navController.navigate(Screen.Profile.route)
+                }
+            )
+        }
+
+        composable(Screen.Favorites.route) {
+            TemporaryScreen(
+                title = "Зачувани",
+                subtitle = "Favorites screen",
+                primaryButtonText = "Почетна",
+                onPrimaryClick = {
+                    navController.navigate(Screen.Home.route)
+                },
+                secondaryButtonText = "Профил",
+                onSecondaryClick = {
+                    navController.navigate(Screen.Profile.route)
+                }
+            )
+        }
+
+        composable(Screen.Profile.route) {
+            TemporaryScreen(
+                title = "Мој профил",
+                subtitle = "Profile screen",
+                primaryButtonText = "Почетна",
+                onPrimaryClick = {
+                    navController.navigate(Screen.Home.route)
+                },
+                secondaryButtonText = "Одјави се",
+                onSecondaryClick = {
+                    navController.navigate(Screen.Login.route) {
+                        popUpTo(0)
+                    }
+                }
+            )
+        }
+
+        composable(Screen.HandymanDetails.route) {
+            TemporaryScreen(
+                title = "Профил на мајстор",
+                subtitle = "Handyman details screen",
+                primaryButtonText = "Назад",
+                onPrimaryClick = {
+                    navController.popBackStack()
+                },
+                secondaryButtonText = "Зачувај",
+                onSecondaryClick = {
+                    navController.navigate(Screen.Favorites.route)
+                }
+            )
+        }
+    }
+}
+
+@Composable
+private fun TemporaryScreen(
+    title: String,
+    subtitle: String,
+    primaryButtonText: String,
+    onPrimaryClick: () -> Unit,
+    secondaryButtonText: String,
+    onSecondaryClick: () -> Unit
+) {
+    Column(
+        modifier = Modifier.fillMaxSize(),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Text(
+            text = title,
+            style = MaterialTheme.typography.headlineMedium,
+            fontWeight = FontWeight.Bold
+        )
+
+        Text(
+            text = subtitle,
+            style = MaterialTheme.typography.bodyMedium
+        )
+
+        Button(onClick = onPrimaryClick) {
+            Text(text = primaryButtonText)
+        }
+
+        Button(onClick = onSecondaryClick) {
+            Text(text = secondaryButtonText)
+        }
+    }
+}
