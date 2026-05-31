@@ -19,6 +19,8 @@ import com.example.najdimajstor.ui.screens.home.HomeScreen
 import androidx.navigation.NavType
 import androidx.navigation.navArgument
 import com.example.najdimajstor.ui.screens.details.HandymanDetailsScreen
+import com.example.najdimajstor.ui.screens.favorites.FavoritesScreen
+import com.example.najdimajstor.ui.screens.profile.ProfileScreen
 
 @Composable
 fun AppNavigation() {
@@ -73,30 +75,36 @@ fun AppNavigation() {
         }
 
         composable(Screen.Favorites.route) {
-            TemporaryScreen(
-                title = "Зачувани",
-                subtitle = "Favorites screen",
-                primaryButtonText = "Почетна",
-                onPrimaryClick = {
-                    navController.navigate(Screen.Home.route)
+            FavoritesScreen(
+                onHandymanClick = { handymanId ->
+                    navController.navigate(Screen.HandymanDetails.createRoute(handymanId))
                 },
-                secondaryButtonText = "Профил",
-                onSecondaryClick = {
-                    navController.navigate(Screen.Profile.route)
+                onHomeClick = {
+                    navController.navigate(Screen.Home.route) {
+                        launchSingleTop = true
+                    }
+                },
+                onProfileClick = {
+                    navController.navigate(Screen.Profile.route) {
+                        launchSingleTop = true
+                    }
                 }
             )
         }
 
         composable(Screen.Profile.route) {
-            TemporaryScreen(
-                title = "Мој профил",
-                subtitle = "Profile screen",
-                primaryButtonText = "Почетна",
-                onPrimaryClick = {
-                    navController.navigate(Screen.Home.route)
+            ProfileScreen(
+                onHomeClick = {
+                    navController.navigate(Screen.Home.route) {
+                        launchSingleTop = true
+                    }
                 },
-                secondaryButtonText = "Одјави се",
-                onSecondaryClick = {
+                onFavoritesClick = {
+                    navController.navigate(Screen.Favorites.route) {
+                        launchSingleTop = true
+                    }
+                },
+                onLogoutClick = {
                     navController.navigate(Screen.Login.route) {
                         popUpTo(0)
                     }

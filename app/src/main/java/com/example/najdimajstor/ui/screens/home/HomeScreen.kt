@@ -43,6 +43,8 @@ import com.example.najdimajstor.ui.theme.NajdiGold
 import com.example.najdimajstor.ui.theme.NajdiMutedText
 import com.example.najdimajstor.ui.theme.NajdiNavy
 import com.example.najdimajstor.ui.theme.NajdiSuccess
+import com.example.najdimajstor.ui.components.BottomNavItem
+import com.example.najdimajstor.ui.components.MainBottomBar
 
 @Composable
 fun HomeScreen(
@@ -55,7 +57,9 @@ fun HomeScreen(
 
     Scaffold(
         bottomBar = {
-            HomeBottomBar(
+            MainBottomBar(
+                selectedItem = BottomNavItem.HOME,
+                onHomeClick = { },
                 onFavoritesClick = onFavoritesClick,
                 onProfileClick = onProfileClick
             )
