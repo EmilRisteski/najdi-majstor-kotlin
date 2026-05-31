@@ -15,6 +15,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.example.najdimajstor.ui.screens.auth.LoginScreen
 import com.example.najdimajstor.ui.screens.auth.RegisterScreen
+import com.example.najdimajstor.ui.screens.home.HomeScreen
 
 @Composable
 fun AppNavigation() {
@@ -55,15 +56,14 @@ fun AppNavigation() {
         }
 
         composable(Screen.Home.route) {
-            TemporaryScreen(
-                title = "Почетна",
-                subtitle = "Home screen",
-                primaryButtonText = "Отвори мајстор",
-                onPrimaryClick = {
-                    navController.navigate(Screen.HandymanDetails.createRoute("1"))
+            HomeScreen(
+                onHandymanClick = { handymanId ->
+                    navController.navigate(Screen.HandymanDetails.createRoute(handymanId))
                 },
-                secondaryButtonText = "Мој профил",
-                onSecondaryClick = {
+                onFavoritesClick = {
+                    navController.navigate(Screen.Favorites.route)
+                },
+                onProfileClick = {
                     navController.navigate(Screen.Profile.route)
                 }
             )
