@@ -16,6 +16,9 @@ import androidx.navigation.compose.rememberNavController
 import com.example.najdimajstor.ui.screens.auth.LoginScreen
 import com.example.najdimajstor.ui.screens.auth.RegisterScreen
 import com.example.najdimajstor.ui.screens.home.HomeScreen
+import androidx.navigation.NavType
+import androidx.navigation.navArgument
+import com.example.najdimajstor.ui.screens.details.HandymanDetailsScreen
 
 @Composable
 fun AppNavigation() {
@@ -101,17 +104,20 @@ fun AppNavigation() {
             )
         }
 
-        composable(Screen.HandymanDetails.route) {
-            TemporaryScreen(
-                title = "Профил на мајстор",
-                subtitle = "Handyman details screen",
-                primaryButtonText = "Назад",
-                onPrimaryClick = {
+        composable(
+            route = Screen.HandymanDetails.route,
+            arguments = listOf(
+                navArgument("handymanId") {
+                    type = NavType.StringType
+                }
+            )
+        ) { backStackEntry ->
+            val handymanId = backStackEntry.arguments?.getString("handymanId") ?: ""
+
+            HandymanDetailsScreen(
+                handymanId = handymanId,
+                onBackClick = {
                     navController.popBackStack()
-                },
-                secondaryButtonText = "Зачувај",
-                onSecondaryClick = {
-                    navController.navigate(Screen.Favorites.route)
                 }
             )
         }
