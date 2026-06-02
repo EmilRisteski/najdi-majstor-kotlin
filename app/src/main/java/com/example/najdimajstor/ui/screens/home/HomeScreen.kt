@@ -45,6 +45,7 @@ fun HomeScreen(
     var searchQuery by remember { mutableStateOf("") }
     var selectedCategoryId by remember { mutableStateOf<String?>(null) }
     var selectedCity by remember { mutableStateOf<String?>(null) }
+    var selectedPriceFilter by remember { mutableStateOf(PriceFilter.ALL) }
     var availableOnly by remember { mutableStateOf(false) }
 
     val categories = MockData.serviceCategories
@@ -57,6 +58,7 @@ fun HomeScreen(
         searchQuery,
         selectedCategoryId,
         selectedCity,
+        selectedPriceFilter,
         availableOnly
     ) {
         val query = searchQuery.trim()
@@ -76,12 +78,38 @@ fun HomeScreen(
             val matchesCity = selectedCity == null ||
                     handyman.city == selectedCity
 
-            val matchesAvailability = !availableOnly ||
-                    handyman.isAvailable
+            val matchesPrice = when (selectedPriceFilter) {
+                PriceFilter.ALL -> true
 
-            matchesSearch && matchesCategory && matchesCity && matchesAvailability
+                PriceFilter.UP_TO_1000 -> {
+                    handyman.priceFrom != null && handyman.priceFrom <= 1000
+                }
+
+                PriceFilter.FROM_1000_TO_2000 -> {
+                    val from = handyman.priceFrom
+                    val to = handyman.priceTo ?: from
+                    from != null && to != null && from <= 2000 && to >= 1000
+                }
+
+                PriceFilter.NEGOTIABLE -> handyman.isPriceNegotiable
+            }
+
+            val matchesAvailability = !availableOnly || handyman.isAvailable
+
+            matchesSearch &&
+                    matchesCategory &&
+                    matchesCity &&
+                    matchesPrice &&
+                    matchesAvailability
         }
     }
+
+    val showFilters =
+        selectedCategory != null ||
+                searchQuery.isNotBlank() ||
+                selectedCity != null ||
+                selectedPriceFilter != PriceFilter.ALL ||
+                availableOnly
 
     Scaffold(
         bottomBar = {
@@ -135,7 +163,11 @@ fun HomeScreen(
                                         selected = selectedCategoryId == category.id,
                                         onClick = {
                                             selectedCategoryId =
-                                                if (selectedCategoryId == category.id) null else category.id
+                                                if (selectedCategoryId == category.id) {
+                                                    null
+                                                } else {
+                                                    category.id
+                                                }
                                         },
                                         modifier = Modifier.weight(1f)
                                     )
@@ -150,17 +182,20 @@ fun HomeScreen(
                 }
             }
 
-            if (selectedCategory != null || searchQuery.isNotBlank()) {
+            if (showFilters) {
                 item {
                     FilterSection(
                         cities = cities,
                         selectedCity = selectedCity,
                         onCitySelected = { selectedCity = it },
+                        selectedPriceFilter = selectedPriceFilter,
+                        onPriceFilterSelected = { selectedPriceFilter = it },
                         availableOnly = availableOnly,
                         onAvailableOnlyChange = { availableOnly = it },
                         onClearFilters = {
                             selectedCategoryId = null
                             selectedCity = null
+                            selectedPriceFilter = PriceFilter.ALL
                             availableOnly = false
                             searchQuery = ""
                         }
@@ -221,6 +256,8 @@ private fun FilterSection(
     cities: List<String>,
     selectedCity: String?,
     onCitySelected: (String?) -> Unit,
+    selectedPriceFilter: PriceFilter,
+    onPriceFilterSelected: (PriceFilter) -> Unit,
     availableOnly: Boolean,
     onAvailableOnlyChange: (Boolean) -> Unit,
     onClearFilters: () -> Unit
@@ -272,6 +309,20 @@ private fun FilterSection(
             }
         }
 
+        LazyRow(
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            items(PriceFilter.entries.toList()) { priceFilter ->
+                FilterChip(
+                    selected = selectedPriceFilter == priceFilter,
+                    onClick = { onPriceFilterSelected(priceFilter) },
+                    label = {
+                        Text(text = priceFilter.title)
+                    }
+                )
+            }
+        }
+
         FilterChip(
             selected = availableOnly,
             onClick = { onAvailableOnlyChange(!availableOnly) },
@@ -297,4 +348,13 @@ private fun EmptySearchResult() {
             textAlign = TextAlign.Center
         )
     }
+}
+
+private enum class PriceFilter(
+    val title: String
+) {
+    ALL("Сите цени"),
+    UP_TO_1000("До 1000 ден."),
+    FROM_1000_TO_2000("1000-2000 ден."),
+    NEGOTIABLE("По договор")
 }
