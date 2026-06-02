@@ -1,6 +1,8 @@
 package com.example.najdimajstor.ui.components
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -23,19 +25,32 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.example.najdimajstor.data.model.ServiceCategory
+import com.example.najdimajstor.ui.theme.NajdiBorder
 import com.example.najdimajstor.ui.theme.NajdiGold
 import com.example.najdimajstor.ui.theme.NajdiMutedText
 
 @Composable
 fun CategoryCard(
     category: ServiceCategory,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    selected: Boolean = false,
+    onClick: () -> Unit = {}
 ) {
     Card(
-        modifier = modifier.height(126.dp),
+        modifier = modifier
+            .height(126.dp)
+            .clickable { onClick() },
         shape = RoundedCornerShape(24.dp),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
+            containerColor = if (selected) {
+                NajdiGold.copy(alpha = 0.12f)
+            } else {
+                MaterialTheme.colorScheme.surface
+            }
+        ),
+        border = BorderStroke(
+            width = if (selected) 2.dp else 1.dp,
+            color = if (selected) NajdiGold else NajdiBorder
         ),
         elevation = CardDefaults.cardElevation(defaultElevation = 3.dp)
     ) {
