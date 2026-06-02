@@ -25,6 +25,7 @@ import com.example.najdimajstor.ui.components.MainBottomBar
 import com.example.najdimajstor.ui.theme.NajdiGold
 import com.example.najdimajstor.ui.components.HandymanCard
 import com.example.najdimajstor.ui.components.CategoryCard
+import com.example.najdimajstor.ui.components.HomeHeader
 
 @Composable
 fun HomeScreen(
@@ -56,18 +57,7 @@ fun HomeScreen(
             item {
                 Spacer(modifier = Modifier.height(20.dp))
 
-                Text(
-                    text = "НајдиМајстор",
-                    style = MaterialTheme.typography.headlineMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onBackground
-                )
-
-                Text(
-                    text = "Пронајди доверлив мајстор во твоја близина",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.65f)
-                )
+                HomeHeader()
             }
 
             item {

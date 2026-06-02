@@ -39,8 +39,9 @@ import com.example.najdimajstor.ui.theme.NajdiGold
 import com.example.najdimajstor.ui.theme.NajdiMutedText
 import com.example.najdimajstor.ui.theme.NajdiNavy
 import com.example.najdimajstor.ui.theme.NajdiSuccess
-
+import com.example.najdimajstor.ui.theme.NajdiTextLight
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
+
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun HandymanDetailsScreen(
@@ -82,7 +83,7 @@ fun HandymanDetailsScreen(
                     Icon(
                         imageVector = Icons.Default.ArrowBack,
                         contentDescription = "Назад",
-                        tint = MaterialTheme.colorScheme.surface
+                        tint = NajdiTextLight
                     )
                 }
 
@@ -95,7 +96,7 @@ fun HandymanDetailsScreen(
                     Icon(
                         imageVector = Icons.Default.FavoriteBorder,
                         contentDescription = "Зачувај",
-                        tint = MaterialTheme.colorScheme.surface
+                        tint = NajdiTextLight
                     )
                 }
 
@@ -120,7 +121,7 @@ fun HandymanDetailsScreen(
                     ) {
                         Text(
                             text = "Достапен",
-                            color = MaterialTheme.colorScheme.surface,
+                            color = NajdiTextLight,
                             style = MaterialTheme.typography.labelLarge
                         )
                     }
