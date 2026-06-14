@@ -11,13 +11,10 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -31,6 +28,7 @@ import androidx.compose.ui.unit.dp
 import com.example.najdimajstor.data.mock.MockData
 import com.example.najdimajstor.ui.components.BottomNavItem
 import com.example.najdimajstor.ui.components.CategoryCard
+import com.example.najdimajstor.ui.components.FilterBottomSheet
 import com.example.najdimajstor.ui.components.HandymanCard
 import com.example.najdimajstor.ui.components.HomeHeader
 import com.example.najdimajstor.ui.components.MainBottomBar
@@ -45,8 +43,11 @@ fun HomeScreen(
     var searchQuery by remember { mutableStateOf("") }
     var selectedCategoryId by remember { mutableStateOf<String?>(null) }
     var selectedCity by remember { mutableStateOf<String?>(null) }
-    var selectedPriceFilter by remember { mutableStateOf(PriceFilter.ALL) }
+    var priceRange by remember { mutableStateOf(150f..5000f) }
+    var minimumRating by remember { mutableStateOf(0f) }
     var availableOnly by remember { mutableStateOf(false) }
+    var includeNegotiable by remember { mutableStateOf(true) }
+    var showFilterSheet by remember { mutableStateOf(false) }
 
     val categories = MockData.serviceCategories
     val handymen = MockData.handymen
@@ -54,12 +55,38 @@ fun HomeScreen(
 
     val selectedCategory = categories.firstOrNull { it.id == selectedCategoryId }
 
+    val hasCustomPriceRange =
+        priceRange.start > 150f || priceRange.endInclusive < 5000f
+
+    val activeFiltersCount = listOf(
+        selectedCategoryId != null,
+        selectedCity != null,
+        hasCustomPriceRange,
+        minimumRating > 0f,
+        availableOnly,
+        !includeNegotiable
+    ).count { it }
+
+    val hasAdvancedFilters =
+        selectedCity != null ||
+                hasCustomPriceRange ||
+                minimumRating > 0f ||
+                availableOnly ||
+                !includeNegotiable
+
+    val isShowingResults =
+        searchQuery.isNotBlank() ||
+                selectedCategory != null ||
+                hasAdvancedFilters
+
     val filteredHandymen = remember(
         searchQuery,
         selectedCategoryId,
         selectedCity,
-        selectedPriceFilter,
-        availableOnly
+        priceRange,
+        minimumRating,
+        availableOnly,
+        includeNegotiable
     ) {
         val query = searchQuery.trim()
 
@@ -78,21 +105,21 @@ fun HomeScreen(
             val matchesCity = selectedCity == null ||
                     handyman.city == selectedCity
 
-            val matchesPrice = when (selectedPriceFilter) {
-                PriceFilter.ALL -> true
+            val from = handyman.priceFrom
+            val to = handyman.priceTo ?: from
 
-                PriceFilter.UP_TO_1000 -> {
-                    handyman.priceFrom != null && handyman.priceFrom <= 1000
-                }
+            val matchesFixedPrice =
+                from != null &&
+                        to != null &&
+                        from <= priceRange.endInclusive &&
+                        to >= priceRange.start
 
-                PriceFilter.FROM_1000_TO_2000 -> {
-                    val from = handyman.priceFrom
-                    val to = handyman.priceTo ?: from
-                    from != null && to != null && from <= 2000 && to >= 1000
-                }
+            val matchesNegotiablePrice =
+                includeNegotiable && handyman.isPriceNegotiable
 
-                PriceFilter.NEGOTIABLE -> handyman.isPriceNegotiable
-            }
+            val matchesPrice = matchesFixedPrice || matchesNegotiablePrice
+
+            val matchesRating = handyman.rating >= minimumRating
 
             val matchesAvailability = !availableOnly || handyman.isAvailable
 
@@ -100,16 +127,10 @@ fun HomeScreen(
                     matchesCategory &&
                     matchesCity &&
                     matchesPrice &&
+                    matchesRating &&
                     matchesAvailability
         }
     }
-
-    val showFilters =
-        selectedCategory != null ||
-                searchQuery.isNotBlank() ||
-                selectedCity != null ||
-                selectedPriceFilter != PriceFilter.ALL ||
-                availableOnly
 
     Scaffold(
         bottomBar = {
@@ -134,11 +155,13 @@ fun HomeScreen(
 
                 HomeHeader(
                     searchQuery = searchQuery,
-                    onSearchQueryChange = { searchQuery = it }
+                    onSearchQueryChange = { searchQuery = it },
+                    onFilterClick = { showFilterSheet = true },
+                    activeFiltersCount = activeFiltersCount
                 )
             }
 
-            if (searchQuery.isBlank()) {
+            if (!isShowingResults) {
                 item {
                     Text(
                         text = "Каква услуга ти треба?",
@@ -182,27 +205,6 @@ fun HomeScreen(
                 }
             }
 
-            if (showFilters) {
-                item {
-                    FilterSection(
-                        cities = cities,
-                        selectedCity = selectedCity,
-                        onCitySelected = { selectedCity = it },
-                        selectedPriceFilter = selectedPriceFilter,
-                        onPriceFilterSelected = { selectedPriceFilter = it },
-                        availableOnly = availableOnly,
-                        onAvailableOnlyChange = { availableOnly = it },
-                        onClearFilters = {
-                            selectedCategoryId = null
-                            selectedCity = null
-                            selectedPriceFilter = PriceFilter.ALL
-                            availableOnly = false
-                            searchQuery = ""
-                        }
-                    )
-                }
-            }
-
             item {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -211,7 +213,7 @@ fun HomeScreen(
                 ) {
                     Text(
                         text = when {
-                            searchQuery.isNotBlank() -> "Резултати"
+                            searchQuery.isNotBlank() || hasAdvancedFilters -> "Резултати"
                             selectedCategory != null -> selectedCategory.title
                             else -> "Истакнати мајстори"
                         },
@@ -249,85 +251,31 @@ fun HomeScreen(
             }
         }
     }
-}
 
-@Composable
-private fun FilterSection(
-    cities: List<String>,
-    selectedCity: String?,
-    onCitySelected: (String?) -> Unit,
-    selectedPriceFilter: PriceFilter,
-    onPriceFilterSelected: (PriceFilter) -> Unit,
-    availableOnly: Boolean,
-    onAvailableOnlyChange: (Boolean) -> Unit,
-    onClearFilters: () -> Unit
-) {
-    Column(
-        verticalArrangement = Arrangement.spacedBy(10.dp)
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = "Филтри",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onBackground
-            )
-
-            TextButton(onClick = onClearFilters) {
-                Text(
-                    text = "Исчисти",
-                    color = NajdiGold
-                )
-            }
-        }
-
-        LazyRow(
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            item {
-                FilterChip(
-                    selected = selectedCity == null,
-                    onClick = { onCitySelected(null) },
-                    label = {
-                        Text(text = "Сите градови")
-                    }
-                )
-            }
-
-            items(cities) { city ->
-                FilterChip(
-                    selected = selectedCity == city,
-                    onClick = { onCitySelected(city) },
-                    label = {
-                        Text(text = city)
-                    }
-                )
-            }
-        }
-
-        LazyRow(
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            items(PriceFilter.entries.toList()) { priceFilter ->
-                FilterChip(
-                    selected = selectedPriceFilter == priceFilter,
-                    onClick = { onPriceFilterSelected(priceFilter) },
-                    label = {
-                        Text(text = priceFilter.title)
-                    }
-                )
-            }
-        }
-
-        FilterChip(
-            selected = availableOnly,
-            onClick = { onAvailableOnlyChange(!availableOnly) },
-            label = {
-                Text(text = "Само достапни")
+    if (showFilterSheet) {
+        FilterBottomSheet(
+            cities = cities,
+            selectedCity = selectedCity,
+            onCitySelected = { selectedCity = it },
+            priceRange = priceRange,
+            onPriceRangeChange = { priceRange = it },
+            minimumRating = minimumRating,
+            onMinimumRatingChange = { minimumRating = it },
+            availableOnly = availableOnly,
+            onAvailableOnlyChange = { availableOnly = it },
+            includeNegotiable = includeNegotiable,
+            onIncludeNegotiableChange = { includeNegotiable = it },
+            onClearFilters = {
+                selectedCategoryId = null
+                selectedCity = null
+                priceRange = 150f..5000f
+                minimumRating = 0f
+                availableOnly = false
+                includeNegotiable = true
+                searchQuery = ""
+            },
+            onDismiss = {
+                showFilterSheet = false
             }
         )
     }
@@ -348,13 +296,4 @@ private fun EmptySearchResult() {
             textAlign = TextAlign.Center
         )
     }
-}
-
-private enum class PriceFilter(
-    val title: String
-) {
-    ALL("Сите цени"),
-    UP_TO_1000("До 1000 ден."),
-    FROM_1000_TO_2000("1000-2000 ден."),
-    NEGOTIABLE("По договор")
 }
