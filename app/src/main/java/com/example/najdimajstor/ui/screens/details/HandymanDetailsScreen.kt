@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -19,7 +20,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.LocationOn
-import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -32,6 +32,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.example.najdimajstor.data.mock.MockData
 import com.example.najdimajstor.ui.components.PrimaryButton
@@ -40,7 +41,6 @@ import com.example.najdimajstor.ui.theme.NajdiMutedText
 import com.example.najdimajstor.ui.theme.NajdiNavy
 import com.example.najdimajstor.ui.theme.NajdiSuccess
 import com.example.najdimajstor.ui.theme.NajdiTextLight
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -71,7 +71,7 @@ fun HandymanDetailsScreen(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(260.dp)
+                    .height(280.dp)
                     .background(NajdiNavy)
             ) {
                 IconButton(
@@ -100,155 +100,193 @@ fun HandymanDetailsScreen(
                     )
                 }
 
-                Text(
-                    text = handyman.profession,
+                Column(
                     modifier = Modifier.align(Alignment.Center),
-                    style = MaterialTheme.typography.headlineMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = NajdiGold
-                )
-
-                if (handyman.isAvailable) {
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
                     Box(
                         modifier = Modifier
-                            .align(Alignment.BottomEnd)
-                            .padding(20.dp)
+                            .size(96.dp)
                             .background(
-                                color = NajdiSuccess,
-                                shape = RoundedCornerShape(50.dp)
-                            )
-                            .padding(horizontal = 14.dp, vertical = 8.dp)
+                                color = NajdiGold.copy(alpha = 0.14f),
+                                shape = RoundedCornerShape(28.dp)
+                            ),
+                        contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = "Достапен",
-                            color = NajdiTextLight,
-                            style = MaterialTheme.typography.labelLarge
+                            text = handyman.profession.first().toString(),
+                            style = MaterialTheme.typography.headlineLarge,
+                            fontWeight = FontWeight.Bold,
+                            color = NajdiGold
                         )
                     }
-                }
-            }
 
-            Column(
-                modifier = Modifier.padding(22.dp)
-            ) {
-                Text(
-                    text = handyman.name,
-                    style = MaterialTheme.typography.headlineMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onBackground
-                )
-
-                Text(
-                    text = handyman.profession,
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f)
-                )
-
-                Spacer(modifier = Modifier.height(12.dp))
-
-                Row(
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = "★",
-                        color = NajdiGold,
-                        fontWeight = FontWeight.Bold
-                    )
+                    Spacer(modifier = Modifier.height(16.dp))
 
                     Text(
-                        text = " ${handyman.rating} (${handyman.reviewCount} оценки)",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.75f)
+                        text = handyman.profession,
+                        style = MaterialTheme.typography.headlineMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = NajdiGold
                     )
-                }
 
-                Spacer(modifier = Modifier.height(8.dp))
-
-                Row(
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.LocationOn,
-                        contentDescription = null,
-                        tint = NajdiMutedText
-                    )
+                    Spacer(modifier = Modifier.height(6.dp))
 
                     Text(
                         text = handyman.city,
                         style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.75f)
+                        color = NajdiTextLight.copy(alpha = 0.75f)
                     )
                 }
 
-                Spacer(modifier = Modifier.height(24.dp))
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(14.dp)
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .padding(20.dp)
+                        .background(
+                            color = if (handyman.isAvailable) {
+                                NajdiSuccess
+                            } else {
+                                NajdiMutedText
+                            },
+                            shape = RoundedCornerShape(50.dp)
+                        )
+                        .padding(horizontal = 14.dp, vertical = 8.dp)
                 ) {
-                    InfoCard(
-                        title = "Искуство",
-                        value = "${handyman.experienceYears} години",
-                        modifier = Modifier.weight(1f)
-                    )
-
-                    InfoCard(
-                        title = "Цена",
-                        value = handyman.price,
-                        modifier = Modifier.weight(1f)
+                    Text(
+                        text = if (handyman.isAvailable) "Достапен" else "Недостапен",
+                        color = NajdiTextLight,
+                        style = MaterialTheme.typography.labelLarge
                     )
                 }
+            }
 
-                Spacer(modifier = Modifier.height(28.dp))
+            Column(
+                modifier = Modifier.padding(22.dp),
+                verticalArrangement = Arrangement.spacedBy(22.dp)
+            ) {
+                Column {
+                    Text(
+                        text = handyman.name,
+                        style = MaterialTheme.typography.headlineMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onBackground
+                    )
 
-                Text(
-                    text = "За мајсторот",
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onBackground
-                )
+                    Spacer(modifier = Modifier.height(4.dp))
 
-                Spacer(modifier = Modifier.height(10.dp))
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.LocationOn,
+                            contentDescription = null,
+                            tint = NajdiMutedText,
+                            modifier = Modifier.size(18.dp)
+                        )
 
-                Text(
-                    text = handyman.description,
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.75f)
-                )
+                        Spacer(modifier = Modifier.size(4.dp))
 
-                Spacer(modifier = Modifier.height(26.dp))
-
-                Text(
-                    text = "Специјалности",
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onBackground
-                )
-
-                Spacer(modifier = Modifier.height(10.dp))
-
-                FlowRow(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    handyman.specialties.forEach { specialty ->
-                        AssistChip(
-                            onClick = { },
-                            label = {
-                                Text(text = specialty)
-                            }
+                        Text(
+                            text = handyman.city,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.72f)
                         )
                     }
                 }
 
-                Spacer(modifier = Modifier.height(30.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    InfoCard(
+                        title = "Рејтинг",
+                        value = "★ ${handyman.rating}",
+                        subtitle = "${handyman.reviewCount} оценки",
+                        modifier = Modifier.weight(1f)
+                    )
+
+                    InfoCard(
+                        title = "Искуство",
+                        value = "${handyman.experienceYears} год.",
+                        subtitle = "работа",
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+
+                InfoCard(
+                    title = "Цена",
+                    value = handyman.price,
+                    subtitle = if (handyman.isPriceNegotiable) "Цена по договор" else "Проценета цена",
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                SectionCard(
+                    title = "За мајсторот"
+                ) {
+                    Text(
+                        text = handyman.description,
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.75f)
+                    )
+                }
+
+                SectionCard(
+                    title = "Специјалности"
+                ) {
+                    FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        handyman.specialties.forEach { specialty ->
+                            AssistChip(
+                                onClick = { },
+                                label = {
+                                    Text(text = specialty)
+                                }
+                            )
+                        }
+                    }
+                }
+
+                SectionCard(
+                    title = "Претходни работи"
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        PortfolioPlaceholder(
+                            text = "Работа 1",
+                            modifier = Modifier.weight(1f)
+                        )
+
+                        PortfolioPlaceholder(
+                            text = "Работа 2",
+                            modifier = Modifier.weight(1f)
+                        )
+
+                        PortfolioPlaceholder(
+                            text = "Работа 3",
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                }
 
                 PrimaryButton(
-                    text = "Контактирај мајстор",
+                    text = "Испрати порака",
                     onClick = { }
                 )
 
-                Spacer(modifier = Modifier.height(24.dp))
+                Text(
+                    text = "Чатот ќе биде достапен откако ќе ја поврземе апликацијата со Firebase.",
+                    modifier = Modifier.fillMaxWidth(),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.55f),
+                    textAlign = TextAlign.Center
+                )
+
+                Spacer(modifier = Modifier.height(8.dp))
             }
         }
     }
@@ -258,11 +296,12 @@ fun HandymanDetailsScreen(
 private fun InfoCard(
     title: String,
     value: String,
+    subtitle: String,
     modifier: Modifier = Modifier
 ) {
     Card(
-        modifier = modifier.height(100.dp),
-        shape = RoundedCornerShape(20.dp),
+        modifier = modifier.height(112.dp),
+        shape = RoundedCornerShape(22.dp),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surface
         ),
@@ -288,6 +327,68 @@ private fun InfoCard(
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onSurface
             )
+
+            Spacer(modifier = Modifier.height(2.dp))
+
+            Text(
+                text = subtitle,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f)
+            )
         }
+    }
+}
+
+@Composable
+private fun SectionCard(
+    title: String,
+    content: @Composable () -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(22.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 3.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(18.dp)
+        ) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            content()
+        }
+    }
+}
+
+@Composable
+private fun PortfolioPlaceholder(
+    text: String,
+    modifier: Modifier = Modifier
+) {
+    Box(
+        modifier = modifier
+            .height(92.dp)
+            .background(
+                color = NajdiGold.copy(alpha = 0.12f),
+                shape = RoundedCornerShape(18.dp)
+            ),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = text,
+            style = MaterialTheme.typography.labelLarge,
+            fontWeight = FontWeight.Bold,
+            color = NajdiGold,
+            textAlign = TextAlign.Center
+        )
     }
 }
