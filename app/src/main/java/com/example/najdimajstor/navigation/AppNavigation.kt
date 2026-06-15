@@ -21,6 +21,7 @@ import androidx.navigation.navArgument
 import com.example.najdimajstor.ui.screens.details.HandymanDetailsScreen
 import com.example.najdimajstor.ui.screens.favorites.FavoritesScreen
 import com.example.najdimajstor.ui.screens.profile.ProfileScreen
+import com.example.najdimajstor.ui.screens.splash.SplashScreen
 
 @Composable
 fun AppNavigation() {
@@ -28,8 +29,19 @@ fun AppNavigation() {
 
     NavHost(
         navController = navController,
-        startDestination = Screen.Login.route
+        startDestination = Screen.Splash.route
     ) {
+        composable(Screen.Splash.route) {
+            SplashScreen(
+                onSplashFinished = {
+                    navController.navigate(Screen.Login.route) {
+                        popUpTo(Screen.Splash.route) {
+                            inclusive = true
+                        }
+                    }
+                }
+            )
+        }
         composable(Screen.Login.route) {
             LoginScreen(
                 onLoginClick = {
