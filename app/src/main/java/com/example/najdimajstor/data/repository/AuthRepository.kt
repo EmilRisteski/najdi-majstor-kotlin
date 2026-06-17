@@ -59,8 +59,8 @@ class AuthRepository(
             .addOnSuccessListener {
                 onResult(true, null)
             }
-            .addOnFailureListener { exception ->
-                onResult(false, exception.message ?: "Најавата не успеа.")
+            .addOnFailureListener {
+                onResult(false, "Грешна е-пошта или лозинка.")
             }
     }
 

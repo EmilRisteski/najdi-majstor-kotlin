@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Email
@@ -28,22 +29,29 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.example.najdimajstor.data.repository.AuthRepository
 import com.example.najdimajstor.ui.components.AppTextField
 import com.example.najdimajstor.ui.components.BrandLogo
 import com.example.najdimajstor.ui.components.PrimaryButton
+import com.example.najdimajstor.ui.theme.NajdiError
 import com.example.najdimajstor.ui.theme.NajdiGold
-import com.example.najdimajstor.ui.theme.NajdiNavy
 
 @Composable
 fun LoginScreen(
     onLoginClick: () -> Unit,
     onRegisterClick: () -> Unit
 ) {
+    val authRepository = remember { AuthRepository() }
+
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
+
+    var isLoading by remember { mutableStateOf(false) }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
 
     Box(
         modifier = Modifier
@@ -93,34 +101,87 @@ fun LoginScreen(
                 ) {
                     AppTextField(
                         value = email,
-                        onValueChange = { email = it },
+                        onValueChange = {
+                            email = it
+                            errorMessage = null
+                        },
                         label = "Е-пошта",
                         placeholder = "Внеси е-пошта",
-                        leadingIcon = Icons.Default.Email
+                        leadingIcon = Icons.Default.Email,
+                        keyboardOptions = KeyboardOptions(
+                            keyboardType = KeyboardType.Email
+                        )
                     )
 
                     Spacer(modifier = Modifier.height(14.dp))
 
                     AppTextField(
                         value = password,
-                        onValueChange = { password = it },
+                        onValueChange = {
+                            password = it
+                            errorMessage = null
+                        },
                         label = "Лозинка",
                         placeholder = "Внеси лозинка",
                         leadingIcon = Icons.Default.Lock,
-                        visualTransformation = PasswordVisualTransformation()
+                        visualTransformation = PasswordVisualTransformation(),
+                        keyboardOptions = KeyboardOptions(
+                            keyboardType = KeyboardType.Password
+                        )
                     )
+
+                    if (errorMessage != null) {
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        Text(
+                            text = errorMessage ?: "",
+                            color = NajdiError,
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
 
                     Spacer(modifier = Modifier.height(22.dp))
 
                     PrimaryButton(
-                        text = "Најави се",
-                        onClick = onLoginClick
+                        text = if (isLoading) "Најавување..." else "Најави се",
+                        onClick = {
+                            if (isLoading) return@PrimaryButton
+
+                            when {
+                                email.isBlank() -> {
+                                    errorMessage = "Внеси е-пошта."
+                                }
+
+                                password.isBlank() -> {
+                                    errorMessage = "Внеси лозинка."
+                                }
+
+                                else -> {
+                                    isLoading = true
+                                    errorMessage = null
+
+                                    authRepository.loginUser(
+                                        email = email.trim(),
+                                        password = password
+                                    ) { success, error ->
+                                        isLoading = false
+
+                                        if (success) {
+                                            onLoginClick()
+                                        } else {
+                                            errorMessage = error ?: "Најавата не успеа."
+                                        }
+                                    }
+                                }
+                            }
+                        }
                     )
 
                     Spacer(modifier = Modifier.height(10.dp))
 
                     TextButton(
                         onClick = { },
+                        enabled = !isLoading,
                         modifier = Modifier.align(Alignment.CenterHorizontally)
                     ) {
                         Text(
@@ -134,7 +195,10 @@ fun LoginScreen(
 
             Spacer(modifier = Modifier.height(18.dp))
 
-            TextButton(onClick = onRegisterClick) {
+            TextButton(
+                onClick = onRegisterClick,
+                enabled = !isLoading
+            ) {
                 Text(
                     text = "Немаш профил? Креирај профил",
                     color = NajdiGold,
