@@ -16,6 +16,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -26,6 +27,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.example.najdimajstor.data.mock.MockData
+import com.example.najdimajstor.data.model.Handyman
+import com.example.najdimajstor.data.repository.HandymanRepository
 import com.example.najdimajstor.ui.components.BottomNavItem
 import com.example.najdimajstor.ui.components.CategoryCard
 import com.example.najdimajstor.ui.components.FilterBottomSheet
@@ -40,6 +43,12 @@ fun HomeScreen(
     onFavoritesClick: () -> Unit,
     onProfileClick: () -> Unit
 ) {
+    val handymanRepository = remember { HandymanRepository() }
+
+    var handymen by remember { mutableStateOf<List<Handyman>>(emptyList()) }
+    var isLoading by remember { mutableStateOf(true) }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
+
     var searchQuery by remember { mutableStateOf("") }
     var selectedCategoryId by remember { mutableStateOf<String?>(null) }
     var selectedCity by remember { mutableStateOf<String?>(null) }
@@ -49,8 +58,15 @@ fun HomeScreen(
     var includeNegotiable by remember { mutableStateOf(true) }
     var showFilterSheet by remember { mutableStateOf(false) }
 
+    LaunchedEffect(Unit) {
+        handymanRepository.getHandymen { result, error ->
+            handymen = result
+            errorMessage = error
+            isLoading = false
+        }
+    }
+
     val categories = MockData.serviceCategories
-    val handymen = MockData.handymen
     val cities = handymen.map { it.city }.distinct().sorted()
 
     val selectedCategory = categories.firstOrNull { it.id == selectedCategoryId }
@@ -80,6 +96,7 @@ fun HomeScreen(
                 hasAdvancedFilters
 
     val filteredHandymen = remember(
+        handymen,
         searchQuery,
         selectedCategoryId,
         selectedCity,
@@ -230,19 +247,37 @@ fun HomeScreen(
                 }
             }
 
-            if (filteredHandymen.isEmpty()) {
-                item {
-                    EmptySearchResult()
+            when {
+                isLoading -> {
+                    item {
+                        LoadingHandymenState()
+                    }
                 }
-            } else {
-                items(
-                    items = filteredHandymen,
-                    key = { handyman -> handyman.id }
-                ) { handyman ->
-                    HandymanCard(
-                        handyman = handyman,
-                        onClick = { onHandymanClick(handyman.id) }
-                    )
+
+                errorMessage != null -> {
+                    item {
+                        ErrorHandymenState(
+                            message = errorMessage ?: "Неуспешно вчитување на мајстори."
+                        )
+                    }
+                }
+
+                filteredHandymen.isEmpty() -> {
+                    item {
+                        EmptySearchResult()
+                    }
+                }
+
+                else -> {
+                    items(
+                        items = filteredHandymen,
+                        key = { handyman -> handyman.id }
+                    ) { handyman ->
+                        HandymanCard(
+                            handyman = handyman,
+                            onClick = { onHandymanClick(handyman.id) }
+                        )
+                    }
                 }
             }
 
@@ -277,6 +312,42 @@ fun HomeScreen(
             onDismiss = {
                 showFilterSheet = false
             }
+        )
+    }
+}
+
+@Composable
+private fun LoadingHandymenState() {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(180.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = "Се вчитуваат мајстори...",
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.65f),
+            textAlign = TextAlign.Center
+        )
+    }
+}
+
+@Composable
+private fun ErrorHandymenState(
+    message: String
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(180.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = message,
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.error,
+            textAlign = TextAlign.Center
         )
     }
 }
