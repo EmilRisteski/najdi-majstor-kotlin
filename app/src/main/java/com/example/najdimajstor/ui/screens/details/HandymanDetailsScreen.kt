@@ -18,6 +18,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Verified
@@ -41,6 +42,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.example.najdimajstor.data.model.Handyman
+import com.example.najdimajstor.data.repository.FavoriteRepository
 import com.example.najdimajstor.data.repository.HandymanRepository
 import com.example.najdimajstor.ui.components.PrimaryButton
 import com.example.najdimajstor.ui.theme.NajdiGold
@@ -55,19 +57,32 @@ fun HandymanDetailsScreen(
     onBackClick: () -> Unit
 ) {
     val handymanRepository = remember { HandymanRepository() }
+    val favoriteRepository = remember { FavoriteRepository() }
 
     var handyman by remember { mutableStateOf<Handyman?>(null) }
+    var isFavorite by remember { mutableStateOf(false) }
+
     var isLoading by remember { mutableStateOf(true) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
+    var favoriteErrorMessage by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(handymanId) {
         isLoading = true
         errorMessage = null
+        favoriteErrorMessage = null
 
         handymanRepository.getHandymanById(handymanId) { result, error ->
             handyman = result
             errorMessage = error
             isLoading = false
+        }
+
+        favoriteRepository.getFavoriteIds { ids, error ->
+            if (error == null) {
+                isFavorite = ids.contains(handymanId)
+            } else {
+                favoriteErrorMessage = error
+            }
         }
     }
 
@@ -97,7 +112,25 @@ fun HandymanDetailsScreen(
 
         else -> {
             HandymanDetailsContent(
-                handyman = currentHandyman,
+                handyman = currentHandyman.copy(isFavorite = isFavorite),
+                favoriteErrorMessage = favoriteErrorMessage,
+                onFavoriteClick = {
+                    val previousFavoriteState = isFavorite
+
+                    isFavorite = !isFavorite
+                    favoriteErrorMessage = null
+
+                    favoriteRepository.toggleFavorite(
+                        handymanId = handymanId,
+                        isCurrentlyFavorite = previousFavoriteState
+                    ) { success, error ->
+                        if (!success) {
+                            isFavorite = previousFavoriteState
+                            favoriteErrorMessage =
+                                error ?: "Неуспешно зачувување на мајсторот."
+                        }
+                    }
+                },
                 onBackClick = onBackClick
             )
         }
@@ -141,6 +174,8 @@ private fun DetailsMessageState(
 @Composable
 private fun HandymanDetailsContent(
     handyman: Handyman,
+    favoriteErrorMessage: String?,
+    onFavoriteClick: () -> Unit,
     onBackClick: () -> Unit
 ) {
     val professionInitial = handyman.profession
@@ -176,15 +211,19 @@ private fun HandymanDetailsContent(
                 }
 
                 IconButton(
-                    onClick = { },
+                    onClick = onFavoriteClick,
                     modifier = Modifier
                         .align(Alignment.TopEnd)
                         .padding(16.dp)
                 ) {
                     Icon(
-                        imageVector = Icons.Default.FavoriteBorder,
+                        imageVector = if (handyman.isFavorite) {
+                            Icons.Default.Favorite
+                        } else {
+                            Icons.Default.FavoriteBorder
+                        },
                         contentDescription = "Зачувај",
-                        tint = NajdiTextLight
+                        tint = if (handyman.isFavorite) NajdiGold else NajdiTextLight
                     )
                 }
 
@@ -253,6 +292,16 @@ private fun HandymanDetailsContent(
                 modifier = Modifier.padding(22.dp),
                 verticalArrangement = Arrangement.spacedBy(22.dp)
             ) {
+                if (favoriteErrorMessage != null) {
+                    Text(
+                        text = favoriteErrorMessage,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.error,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+
                 Column {
                     Row(
                         verticalAlignment = Alignment.CenterVertically
