@@ -3,6 +3,7 @@ package com.example.najdimajstor.ui.components
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -21,6 +22,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -36,6 +38,14 @@ fun CategoryCard(
     selected: Boolean = false,
     onClick: () -> Unit = {}
 ) {
+    val isDarkTheme = isSystemInDarkTheme()
+
+    val iconBoxColor = if (isDarkTheme) {
+        Color(0xFF1E293B)
+    } else {
+        Color(0xFFF1F5F9)
+    }
+
     Card(
         modifier = modifier
             .height(126.dp)
@@ -43,7 +53,7 @@ fun CategoryCard(
         shape = RoundedCornerShape(24.dp),
         colors = CardDefaults.cardColors(
             containerColor = if (selected) {
-                NajdiGold.copy(alpha = 0.12f)
+                NajdiGold.copy(alpha = 0.10f)
             } else {
                 MaterialTheme.colorScheme.surface
             }
@@ -64,7 +74,7 @@ fun CategoryCard(
             Box(
                 modifier = Modifier
                     .background(
-                        color = NajdiGold.copy(alpha = 0.14f),
+                        color = iconBoxColor,
                         shape = RoundedCornerShape(18.dp)
                     )
                     .padding(12.dp),

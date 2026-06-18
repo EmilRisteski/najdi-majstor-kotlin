@@ -16,12 +16,10 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Favorite
-import androidx.compose.material.icons.filled.LocationOn
-import androidx.compose.material.icons.automirrored.filled.Logout
-import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Star
@@ -34,6 +32,11 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -46,6 +49,9 @@ import com.example.najdimajstor.ui.theme.NajdiGold
 import com.example.najdimajstor.ui.theme.NajdiMutedText
 import com.example.najdimajstor.ui.theme.NajdiNavy
 import com.example.najdimajstor.ui.theme.NajdiTextLight
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FirebaseFirestore
+import androidx.compose.ui.graphics.Color
 
 @Composable
 fun ProfileScreen(
@@ -54,6 +60,45 @@ fun ProfileScreen(
     onLogoutClick: () -> Unit
 ) {
     val savedCount = MockData.handymen.count { it.isFavorite }
+
+    var fullName by remember { mutableStateOf("Корисник") }
+    var email by remember { mutableStateOf("") }
+    var phone by remember { mutableStateOf("") }
+    var role by remember { mutableStateOf("CUSTOMER") }
+    var isLoading by remember { mutableStateOf(true) }
+
+    LaunchedEffect(Unit) {
+        val currentUser = FirebaseAuth.getInstance().currentUser
+        val userId = currentUser?.uid
+
+        if (userId == null) {
+            isLoading = false
+            return@LaunchedEffect
+        }
+
+        FirebaseFirestore.getInstance()
+            .collection("users")
+            .document(userId)
+            .get()
+            .addOnSuccessListener { document ->
+                fullName = document.getString("fullName").orEmpty().ifBlank { "Корисник" }
+                email = document.getString("email").orEmpty().ifBlank {
+                    currentUser.email.orEmpty()
+                }
+                phone = document.getString("phone").orEmpty()
+                role = document.getString("role").orEmpty().ifBlank { "CUSTOMER" }
+                isLoading = false
+            }
+            .addOnFailureListener {
+                email = currentUser.email.orEmpty()
+                isLoading = false
+            }
+    }
+
+    val roleLabel = when (role) {
+        "HANDYMAN" -> "Мајстор"
+        else -> "Клиент"
+    }
 
     Scaffold(
         bottomBar = {
@@ -91,7 +136,10 @@ fun ProfileScreen(
             }
 
             item {
-                ProfileHeaderCard()
+                ProfileHeaderCard(
+                    fullName = if (isLoading) "Се вчитува..." else fullName,
+                    roleLabel = roleLabel
+                )
             }
 
             item {
@@ -120,7 +168,10 @@ fun ProfileScreen(
             }
 
             item {
-                PersonalInfoCard()
+                PersonalInfoCard(
+                    email = if (email.isBlank()) "Не е достапна" else email,
+                    phone = if (phone.isBlank()) "Не е внесен" else phone
+                )
             }
 
             item {
@@ -137,7 +188,17 @@ fun ProfileScreen(
 }
 
 @Composable
-private fun ProfileHeaderCard() {
+private fun ProfileHeaderCard(
+    fullName: String,
+    roleLabel: String
+) {
+    val initial = fullName
+        .trim()
+        .firstOrNull()
+        ?.uppercaseChar()
+        ?.toString()
+        ?: "К"
+
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(28.dp),
@@ -162,7 +223,7 @@ private fun ProfileHeaderCard() {
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    text = "К",
+                    text = initial,
                     style = MaterialTheme.typography.headlineMedium,
                     fontWeight = FontWeight.Bold,
                     color = NajdiNavy
@@ -172,7 +233,7 @@ private fun ProfileHeaderCard() {
             Spacer(modifier = Modifier.height(16.dp))
 
             Text(
-                text = "Корисник",
+                text = fullName,
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold,
                 color = NajdiTextLight
@@ -181,7 +242,7 @@ private fun ProfileHeaderCard() {
             Spacer(modifier = Modifier.height(4.dp))
 
             Text(
-                text = "Клиентски профил",
+                text = roleLabel,
                 style = MaterialTheme.typography.bodyMedium,
                 color = NajdiTextLight.copy(alpha = 0.7f)
             )
@@ -227,7 +288,10 @@ private fun StatCard(
 }
 
 @Composable
-private fun PersonalInfoCard() {
+private fun PersonalInfoCard(
+    email: String,
+    phone: String,
+) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(24.dp),
@@ -251,7 +315,7 @@ private fun PersonalInfoCard() {
             ProfileInfoRow(
                 icon = Icons.Default.Email,
                 label = "Е-пошта",
-                value = "user@gmail.com"
+                value = email
             )
 
             Spacer(modifier = Modifier.height(16.dp))
@@ -259,16 +323,9 @@ private fun PersonalInfoCard() {
             ProfileInfoRow(
                 icon = Icons.Default.Phone,
                 label = "Телефон",
-                value = "+389 70 000 000"
+                value = phone
             )
 
-            Spacer(modifier = Modifier.height(16.dp))
-
-            ProfileInfoRow(
-                icon = Icons.Default.LocationOn,
-                label = "Локација",
-                value = "Прилеп"
-            )
         }
     }
 }
@@ -419,11 +476,19 @@ private fun ProfileActionRow(
 private fun IconBox(
     icon: ImageVector
 ) {
+    val isDarkTheme = androidx.compose.foundation.isSystemInDarkTheme()
+
+    val boxColor = if (isDarkTheme) {
+        Color(0xFF1E293B)
+    } else {
+        Color(0xFFF1F5F9)
+    }
+
     Box(
         modifier = Modifier
             .size(44.dp)
             .background(
-                color = NajdiGold.copy(alpha = 0.14f),
+                color = boxColor,
                 shape = RoundedCornerShape(14.dp)
             ),
         contentAlignment = Alignment.Center

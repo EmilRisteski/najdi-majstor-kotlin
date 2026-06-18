@@ -1,5 +1,6 @@
 package com.example.najdimajstor.ui.components
 
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Home
@@ -8,8 +9,13 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.graphics.Color
+import com.example.najdimajstor.ui.theme.NajdiGold
+import com.example.najdimajstor.ui.theme.NajdiSurfaceDark
+import com.example.najdimajstor.ui.theme.NajdiSurfaceLight
 import androidx.compose.ui.unit.dp
 
 enum class BottomNavItem {
@@ -25,13 +31,36 @@ fun MainBottomBar(
     onFavoritesClick: () -> Unit,
     onProfileClick: () -> Unit
 ) {
+    val isDarkTheme = isSystemInDarkTheme()
+
+    val barColor = if (isDarkTheme) {
+        Color(0xFF172033)
+    } else {
+        Color(0xFFEFF3F8)
+    }
+
+    val unselectedColor = if (isDarkTheme) {
+        Color(0xFF94A3B8)
+    } else {
+        Color(0xFF64748B)
+    }
+
+    val itemColors = NavigationBarItemDefaults.colors(
+        selectedIconColor = NajdiGold,
+        selectedTextColor = NajdiGold,
+        unselectedIconColor = unselectedColor,
+        unselectedTextColor = unselectedColor,
+        indicatorColor = Color.Transparent
+    )
+
     NavigationBar(
-        containerColor = MaterialTheme.colorScheme.surface,
-        tonalElevation = 8.dp
+        containerColor = barColor,
+        tonalElevation = 0.dp
     ) {
         NavigationBarItem(
             selected = selectedItem == BottomNavItem.HOME,
             onClick = onHomeClick,
+            colors = itemColors,
             icon = {
                 Icon(
                     imageVector = Icons.Default.Home,
@@ -46,6 +75,7 @@ fun MainBottomBar(
         NavigationBarItem(
             selected = selectedItem == BottomNavItem.FAVORITES,
             onClick = onFavoritesClick,
+            colors = itemColors,
             icon = {
                 Icon(
                     imageVector = Icons.Default.Favorite,
@@ -60,6 +90,7 @@ fun MainBottomBar(
         NavigationBarItem(
             selected = selectedItem == BottomNavItem.PROFILE,
             onClick = onProfileClick,
+            colors = itemColors,
             icon = {
                 Icon(
                     imageVector = Icons.Default.Person,

@@ -2,6 +2,7 @@ package com.example.najdimajstor.ui.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -26,12 +27,12 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.najdimajstor.data.model.Handyman
 import com.example.najdimajstor.ui.theme.NajdiGold
 import com.example.najdimajstor.ui.theme.NajdiMutedText
-import com.example.najdimajstor.ui.theme.NajdiNavy
 import com.example.najdimajstor.ui.theme.NajdiSuccess
 
 @Composable
@@ -41,6 +42,14 @@ fun HandymanCard(
     modifier: Modifier = Modifier,
     onFavoriteClick: () -> Unit = {}
 ) {
+    val isDarkTheme = isSystemInDarkTheme()
+
+    val iconBoxColor = if (isDarkTheme) {
+        Color(0xFF1E293B)
+    } else {
+        Color(0xFFF1F5F9)
+    }
+
     Card(
         modifier = modifier
             .fillMaxWidth()
@@ -62,7 +71,7 @@ fun HandymanCard(
                     modifier = Modifier
                         .size(72.dp)
                         .background(
-                            color = NajdiNavy,
+                            color = iconBoxColor,
                             shape = RoundedCornerShape(20.dp)
                         ),
                     contentAlignment = Alignment.Center
