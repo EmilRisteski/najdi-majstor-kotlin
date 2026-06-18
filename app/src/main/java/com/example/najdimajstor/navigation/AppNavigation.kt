@@ -12,6 +12,7 @@ import com.example.najdimajstor.ui.screens.auth.LoginScreen
 import com.example.najdimajstor.ui.screens.auth.RegisterScreen
 import com.example.najdimajstor.ui.screens.details.HandymanDetailsScreen
 import com.example.najdimajstor.ui.screens.favorites.FavoritesScreen
+import com.example.najdimajstor.ui.screens.handymanSetup.HandymanSetupScreen
 import com.example.najdimajstor.ui.screens.home.HomeScreen
 import com.example.najdimajstor.ui.screens.profile.ProfileScreen
 import com.example.najdimajstor.ui.screens.splash.SplashScreen
@@ -120,6 +121,9 @@ fun AppNavigation() {
                 onFavoritesClick = {
                     navigateBottomBar(Screen.Favorites.route)
                 },
+                onHandymanSetupClick = {
+                    navController.navigate(Screen.HandymanSetup.route)
+                },
                 onLogoutClick = {
                     authRepository.logout()
 
@@ -128,6 +132,14 @@ fun AppNavigation() {
                             inclusive = true
                         }
                     }
+                }
+            )
+        }
+
+        composable(Screen.HandymanSetup.route) {
+            HandymanSetupScreen(
+                onBackClick = {
+                    navController.popBackStack()
                 }
             )
         }

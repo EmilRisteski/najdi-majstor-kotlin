@@ -1,6 +1,7 @@
 package com.example.najdimajstor.ui.screens.profile
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -18,6 +19,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Logout
+import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Favorite
@@ -58,6 +60,7 @@ import com.google.firebase.firestore.FirebaseFirestore
 fun ProfileScreen(
     onHomeClick: () -> Unit,
     onFavoritesClick: () -> Unit,
+    onHandymanSetupClick: () -> Unit,
     onLogoutClick: () -> Unit
 ) {
     val favoriteRepository = remember { FavoriteRepository() }
@@ -185,6 +188,9 @@ fun ProfileScreen(
 
             item {
                 ProfileActionsCard(
+                    isHandyman = role == "HANDYMAN",
+                    onFavoritesClick = onFavoritesClick,
+                    onHandymanSetupClick = onHandymanSetupClick,
                     onLogoutClick = onLogoutClick
                 )
             }
@@ -340,6 +346,9 @@ private fun PersonalInfoCard(
 
 @Composable
 private fun ProfileActionsCard(
+    isHandyman: Boolean,
+    onFavoritesClick: () -> Unit,
+    onHandymanSetupClick: () -> Unit,
     onLogoutClick: () -> Unit
 ) {
     Card(
@@ -362,6 +371,17 @@ private fun ProfileActionsCard(
 
             Spacer(modifier = Modifier.height(12.dp))
 
+            if (isHandyman) {
+                ProfileActionRow(
+                    icon = Icons.Default.Build,
+                    title = "Мајсторски профил",
+                    subtitle = "Постави услуги, цени и достапност",
+                    onClick = onHandymanSetupClick
+                )
+
+                Spacer(modifier = Modifier.height(14.dp))
+            }
+
             ProfileActionRow(
                 icon = Icons.Default.Edit,
                 title = "Уреди профил",
@@ -373,7 +393,8 @@ private fun ProfileActionsCard(
             ProfileActionRow(
                 icon = Icons.Default.Favorite,
                 title = "Зачувани мајстори",
-                subtitle = "Прегледај ги омилените мајстори"
+                subtitle = "Прегледај ги омилените мајстори",
+                onClick = onFavoritesClick
             )
 
             Spacer(modifier = Modifier.height(14.dp))
@@ -454,9 +475,19 @@ private fun ProfileInfoRow(
 private fun ProfileActionRow(
     icon: ImageVector,
     title: String,
-    subtitle: String
+    subtitle: String,
+    onClick: (() -> Unit)? = null
 ) {
+    val rowModifier = if (onClick != null) {
+        Modifier
+            .fillMaxWidth()
+            .clickable { onClick() }
+    } else {
+        Modifier.fillMaxWidth()
+    }
+
     Row(
+        modifier = rowModifier,
         verticalAlignment = Alignment.CenterVertically
     ) {
         IconBox(icon = icon)

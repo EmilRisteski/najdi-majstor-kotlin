@@ -1,7 +1,5 @@
 package com.example.najdimajstor.navigation
 
-
-
 sealed class Screen(val route: String) {
     data object Splash : Screen("splash")
     data object Login : Screen("login")
@@ -9,6 +7,8 @@ sealed class Screen(val route: String) {
     data object Home : Screen("home")
     data object Favorites : Screen("favorites")
     data object Profile : Screen("profile")
+    data object HandymanSetup : Screen("handyman_setup")
+
     data object HandymanDetails : Screen("handyman_details/{handymanId}") {
         fun createRoute(handymanId: String): String = "handyman_details/$handymanId"
     }
