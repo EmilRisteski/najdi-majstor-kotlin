@@ -21,6 +21,17 @@ fun AppNavigation() {
     val navController = rememberNavController()
     val authRepository = remember { AuthRepository() }
 
+    fun navigateBottomBar(destinationRoute: String) {
+        navController.navigate(destinationRoute) {
+            popUpTo(Screen.Home.route) {
+                saveState = true
+            }
+
+            launchSingleTop = true
+            restoreState = true
+        }
+    }
+
     NavHost(
         navController = navController,
         startDestination = Screen.Splash.route
@@ -79,14 +90,10 @@ fun AppNavigation() {
                     navController.navigate(Screen.HandymanDetails.createRoute(handymanId))
                 },
                 onFavoritesClick = {
-                    navController.navigate(Screen.Favorites.route) {
-                        launchSingleTop = true
-                    }
+                    navigateBottomBar(Screen.Favorites.route)
                 },
                 onProfileClick = {
-                    navController.navigate(Screen.Profile.route) {
-                        launchSingleTop = true
-                    }
+                    navigateBottomBar(Screen.Profile.route)
                 }
             )
         }
@@ -97,14 +104,10 @@ fun AppNavigation() {
                     navController.navigate(Screen.HandymanDetails.createRoute(handymanId))
                 },
                 onHomeClick = {
-                    navController.navigate(Screen.Home.route) {
-                        launchSingleTop = true
-                    }
+                    navigateBottomBar(Screen.Home.route)
                 },
                 onProfileClick = {
-                    navController.navigate(Screen.Profile.route) {
-                        launchSingleTop = true
-                    }
+                    navigateBottomBar(Screen.Profile.route)
                 }
             )
         }
@@ -112,14 +115,10 @@ fun AppNavigation() {
         composable(Screen.Profile.route) {
             ProfileScreen(
                 onHomeClick = {
-                    navController.navigate(Screen.Home.route) {
-                        launchSingleTop = true
-                    }
+                    navigateBottomBar(Screen.Home.route)
                 },
                 onFavoritesClick = {
-                    navController.navigate(Screen.Favorites.route) {
-                        launchSingleTop = true
-                    }
+                    navigateBottomBar(Screen.Favorites.route)
                 },
                 onLogoutClick = {
                     authRepository.logout()

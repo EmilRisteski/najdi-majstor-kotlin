@@ -37,6 +37,14 @@ import com.example.najdimajstor.ui.components.HandymanCard
 import com.example.najdimajstor.ui.components.HomeHeader
 import com.example.najdimajstor.ui.components.MainBottomBar
 import com.example.najdimajstor.ui.theme.NajdiGold
+import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.snapshotFlow
+import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.first
 
 @Composable
 fun HomeScreen(
@@ -62,6 +70,20 @@ fun HomeScreen(
     var availableOnly by remember { mutableStateOf(false) }
     var includeNegotiable by remember { mutableStateOf(true) }
     var showFilterSheet by remember { mutableStateOf(false) }
+
+    val homeListState = rememberLazyListState()
+
+    var savedHomeFirstVisibleItemIndex by rememberSaveable {
+        mutableStateOf(0)
+    }
+
+    var savedHomeFirstVisibleItemScrollOffset by rememberSaveable {
+        mutableStateOf(0)
+    }
+
+    var hasRestoredHomeScroll by remember {
+        mutableStateOf(false)
+    }
 
     LaunchedEffect(Unit) {
         handymanRepository.getHandymen { result, error ->
@@ -162,6 +184,36 @@ fun HomeScreen(
         }
     }
 
+    LaunchedEffect(isLoading, filteredHandymen.size) {
+        if (!isLoading && !hasRestoredHomeScroll) {
+            snapshotFlow { homeListState.layoutInfo.totalItemsCount }
+                .filter { totalItems -> totalItems > 0 }
+                .first()
+
+            val lastIndex = homeListState.layoutInfo.totalItemsCount - 1
+            val targetIndex = savedHomeFirstVisibleItemIndex.coerceIn(0, lastIndex)
+
+            homeListState.scrollToItem(
+                index = targetIndex,
+                scrollOffset = savedHomeFirstVisibleItemScrollOffset
+            )
+
+            hasRestoredHomeScroll = true
+        }
+    }
+
+    LaunchedEffect(homeListState, isLoading, hasRestoredHomeScroll) {
+        if (!isLoading && hasRestoredHomeScroll) {
+            snapshotFlow {
+                homeListState.firstVisibleItemIndex to homeListState.firstVisibleItemScrollOffset
+            }.collect { scrollPosition ->
+                savedHomeFirstVisibleItemIndex = scrollPosition.first
+                savedHomeFirstVisibleItemScrollOffset = scrollPosition.second
+            }
+        }
+    }
+
+
     Scaffold(
         bottomBar = {
             MainBottomBar(
@@ -173,6 +225,7 @@ fun HomeScreen(
         }
     ) { innerPadding ->
         LazyColumn(
+            state = homeListState,
             modifier = Modifier
                 .fillMaxSize()
                 .background(MaterialTheme.colorScheme.background)
