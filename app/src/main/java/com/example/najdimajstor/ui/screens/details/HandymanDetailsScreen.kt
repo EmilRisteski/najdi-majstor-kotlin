@@ -20,6 +20,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material.icons.filled.Verified
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -29,12 +30,18 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import com.example.najdimajstor.data.mock.MockData
+import com.example.najdimajstor.data.model.Handyman
+import com.example.najdimajstor.data.repository.HandymanRepository
 import com.example.najdimajstor.ui.components.PrimaryButton
 import com.example.najdimajstor.ui.theme.NajdiGold
 import com.example.najdimajstor.ui.theme.NajdiMutedText
@@ -42,23 +49,104 @@ import com.example.najdimajstor.ui.theme.NajdiNavy
 import com.example.najdimajstor.ui.theme.NajdiSuccess
 import com.example.najdimajstor.ui.theme.NajdiTextLight
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun HandymanDetailsScreen(
     handymanId: String,
     onBackClick: () -> Unit
 ) {
-    val handyman = MockData.handymen.firstOrNull { it.id == handymanId }
+    val handymanRepository = remember { HandymanRepository() }
 
-    if (handyman == null) {
-        Box(
-            modifier = Modifier.fillMaxSize(),
-            contentAlignment = Alignment.Center
-        ) {
-            Text(text = "Мајсторот не е пронајден")
+    var handyman by remember { mutableStateOf<Handyman?>(null) }
+    var isLoading by remember { mutableStateOf(true) }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
+
+    LaunchedEffect(handymanId) {
+        isLoading = true
+        errorMessage = null
+
+        handymanRepository.getHandymanById(handymanId) { result, error ->
+            handyman = result
+            errorMessage = error
+            isLoading = false
         }
-        return
     }
+
+    val currentHandyman = handyman
+
+    when {
+        isLoading -> {
+            DetailsMessageState(
+                message = "Се вчитува мајсторот...",
+                onBackClick = onBackClick
+            )
+        }
+
+        errorMessage != null -> {
+            DetailsMessageState(
+                message = errorMessage ?: "Неуспешно вчитување.",
+                onBackClick = onBackClick
+            )
+        }
+
+        currentHandyman == null -> {
+            DetailsMessageState(
+                message = "Мајсторот не е пронајден.",
+                onBackClick = onBackClick
+            )
+        }
+
+        else -> {
+            HandymanDetailsContent(
+                handyman = currentHandyman,
+                onBackClick = onBackClick
+            )
+        }
+    }
+}
+
+@Composable
+private fun DetailsMessageState(
+    message: String,
+    onBackClick: () -> Unit
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background),
+        contentAlignment = Alignment.Center
+    ) {
+        IconButton(
+            onClick = onBackClick,
+            modifier = Modifier
+                .align(Alignment.TopStart)
+                .padding(16.dp)
+        ) {
+            Icon(
+                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                contentDescription = "Назад",
+                tint = MaterialTheme.colorScheme.onBackground
+            )
+        }
+
+        Text(
+            text = message,
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),
+            textAlign = TextAlign.Center
+        )
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun HandymanDetailsContent(
+    handyman: Handyman,
+    onBackClick: () -> Unit
+) {
+    val professionInitial = handyman.profession
+        .firstOrNull()
+        ?.toString()
+        ?: "?"
 
     Scaffold { innerPadding ->
         Column(
@@ -108,13 +196,13 @@ fun HandymanDetailsScreen(
                         modifier = Modifier
                             .size(96.dp)
                             .background(
-                                color = NajdiGold.copy(alpha = 0.14f),
+                                color = NajdiTextLight.copy(alpha = 0.10f),
                                 shape = RoundedCornerShape(28.dp)
                             ),
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = handyman.profession.first().toString(),
+                            text = professionInitial,
                             style = MaterialTheme.typography.headlineLarge,
                             fontWeight = FontWeight.Bold,
                             color = NajdiGold
@@ -166,12 +254,27 @@ fun HandymanDetailsScreen(
                 verticalArrangement = Arrangement.spacedBy(22.dp)
             ) {
                 Column {
-                    Text(
-                        text = handyman.name,
-                        style = MaterialTheme.typography.headlineMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onBackground
-                    )
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = handyman.name,
+                            style = MaterialTheme.typography.headlineMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onBackground
+                        )
+
+                        if (handyman.isVerified) {
+                            Spacer(modifier = Modifier.size(8.dp))
+
+                            Icon(
+                                imageVector = Icons.Default.Verified,
+                                contentDescription = "Верификуван мајстор",
+                                tint = NajdiGold,
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
+                    }
 
                     Spacer(modifier = Modifier.height(4.dp))
 
@@ -225,7 +328,7 @@ fun HandymanDetailsScreen(
                     title = "За мајсторот"
                 ) {
                     Text(
-                        text = handyman.description,
+                        text = handyman.description.ifBlank { "Нема внесен опис." },
                         style = MaterialTheme.typography.bodyLarge,
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.75f)
                     )
@@ -234,17 +337,25 @@ fun HandymanDetailsScreen(
                 SectionCard(
                     title = "Специјалности"
                 ) {
-                    FlowRow(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        handyman.specialties.forEach { specialty ->
-                            AssistChip(
-                                onClick = { },
-                                label = {
-                                    Text(text = specialty)
-                                }
-                            )
+                    if (handyman.specialties.isEmpty()) {
+                        Text(
+                            text = "Нема внесени специјалности.",
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.75f)
+                        )
+                    } else {
+                        FlowRow(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            handyman.specialties.forEach { specialty ->
+                                AssistChip(
+                                    onClick = { },
+                                    label = {
+                                        Text(text = specialty)
+                                    }
+                                )
+                            }
                         }
                     }
                 }

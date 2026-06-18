@@ -1,6 +1,7 @@
 package com.example.najdimajstor.data.repository
 
 import com.example.najdimajstor.data.model.Handyman
+import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.FirebaseFirestore
 
 class HandymanRepository(
@@ -13,26 +14,7 @@ class HandymanRepository(
             .get()
             .addOnSuccessListener { snapshot ->
                 val handymen = snapshot.documents.map { document ->
-                    Handyman(
-                        id = document.id,
-                        ownerId = document.getString("ownerId").orEmpty(),
-                        name = document.getString("name").orEmpty(),
-                        profession = document.getString("profession").orEmpty(),
-                        city = document.getString("city").orEmpty(),
-                        price = document.getString("price").orEmpty(),
-                        priceFrom = document.getLong("priceFrom")?.toInt(),
-                        priceTo = document.getLong("priceTo")?.toInt(),
-                        isPriceNegotiable = document.getBoolean("isPriceNegotiable") ?: false,
-                        rating = document.getDouble("rating") ?: 0.0,
-                        reviewCount = document.getLong("reviewCount")?.toInt() ?: 0,
-                        experienceYears = document.getLong("experienceYears")?.toInt() ?: 0,
-                        isAvailable = document.getBoolean("isAvailable") ?: true,
-                        description = document.getString("description").orEmpty(),
-                        specialties = document.get("specialties") as? List<String> ?: emptyList(),
-                        isFavorite = false,
-                        isVerified = document.getBoolean("isVerified") ?: false,
-                        verificationStatus = document.getString("verificationStatus") ?: "none"
-                    )
+                    document.toHandyman()
                 }
 
                 onResult(handymen, null)
@@ -40,5 +22,52 @@ class HandymanRepository(
             .addOnFailureListener { exception ->
                 onResult(emptyList(), exception.message ?: "Неуспешно вчитување на мајстори.")
             }
+    }
+
+    fun getHandymanById(
+        handymanId: String,
+        onResult: (Handyman?, String?) -> Unit
+    ) {
+        if (handymanId.isBlank()) {
+            onResult(null, "Мајсторот не е пронајден.")
+            return
+        }
+
+        firestore.collection("handymen")
+            .document(handymanId)
+            .get()
+            .addOnSuccessListener { document ->
+                if (document.exists()) {
+                    onResult(document.toHandyman(), null)
+                } else {
+                    onResult(null, "Мајсторот не е пронајден.")
+                }
+            }
+            .addOnFailureListener { exception ->
+                onResult(null, exception.message ?: "Неуспешно вчитување на мајсторот.")
+            }
+    }
+
+    private fun DocumentSnapshot.toHandyman(): Handyman {
+        return Handyman(
+            id = id,
+            ownerId = getString("ownerId").orEmpty(),
+            name = getString("name").orEmpty(),
+            profession = getString("profession").orEmpty(),
+            city = getString("city").orEmpty(),
+            price = getString("price").orEmpty(),
+            priceFrom = getLong("priceFrom")?.toInt(),
+            priceTo = getLong("priceTo")?.toInt(),
+            isPriceNegotiable = getBoolean("isPriceNegotiable") ?: false,
+            rating = getDouble("rating") ?: 0.0,
+            reviewCount = getLong("reviewCount")?.toInt() ?: 0,
+            experienceYears = getLong("experienceYears")?.toInt() ?: 0,
+            isAvailable = getBoolean("isAvailable") ?: true,
+            description = getString("description").orEmpty(),
+            specialties = get("specialties") as? List<String> ?: emptyList(),
+            isFavorite = false,
+            isVerified = getBoolean("isVerified") ?: false,
+            verificationStatus = getString("verificationStatus") ?: "none"
+        )
     }
 }
