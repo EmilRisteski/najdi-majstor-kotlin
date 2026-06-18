@@ -1,10 +1,14 @@
 package com.example.najdimajstor.data.repository
 
 import com.example.najdimajstor.data.model.Handyman
+import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.DocumentSnapshot
+import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.SetOptions
 
 class HandymanRepository(
+    private val auth: FirebaseAuth = FirebaseAuth.getInstance(),
     private val firestore: FirebaseFirestore = FirebaseFirestore.getInstance()
 ) {
     fun getHandymen(
@@ -13,9 +17,9 @@ class HandymanRepository(
         firestore.collection("handymen")
             .get()
             .addOnSuccessListener { snapshot ->
-                val handymen = snapshot.documents.map { document ->
-                    document.toHandyman()
-                }
+                val handymen = snapshot.documents
+                    .map { document -> document.toHandyman() }
+                    .filter { handyman -> handyman.isPublished }
 
                 onResult(handymen, null)
             }
@@ -48,6 +52,51 @@ class HandymanRepository(
             }
     }
 
+    fun saveHandymanProfile(
+        handyman: Handyman,
+        onResult: (Boolean, String?) -> Unit
+    ) {
+        val userId = auth.currentUser?.uid
+
+        if (userId == null) {
+            onResult(false, "Корисникот не е најавен.")
+            return
+        }
+
+        val handymanData = hashMapOf(
+            "ownerId" to userId,
+            "name" to handyman.name,
+            "profession" to handyman.profession,
+            "city" to handyman.city,
+            "price" to handyman.price,
+            "priceFrom" to handyman.priceFrom,
+            "priceTo" to handyman.priceTo,
+            "isPriceNegotiable" to handyman.isPriceNegotiable,
+            "rating" to handyman.rating,
+            "reviewCount" to handyman.reviewCount,
+            "experienceYears" to handyman.experienceYears,
+            "isAvailable" to handyman.isAvailable,
+            "description" to handyman.description,
+            "specialties" to handyman.specialties,
+            "isVerified" to handyman.isVerified,
+            "verificationStatus" to handyman.verificationStatus,
+            "isPublished" to handyman.isPublished,
+            "professionRequestStatus" to handyman.professionRequestStatus,
+            "requestedProfession" to handyman.requestedProfession,
+            "updatedAt" to FieldValue.serverTimestamp()
+        )
+
+        firestore.collection("handymen")
+            .document(userId)
+            .set(handymanData, SetOptions.merge())
+            .addOnSuccessListener {
+                onResult(true, null)
+            }
+            .addOnFailureListener { exception ->
+                onResult(false, exception.message ?: "Неуспешно зачувување на профилот.")
+            }
+    }
+
     private fun DocumentSnapshot.toHandyman(): Handyman {
         return Handyman(
             id = id,
@@ -67,7 +116,10 @@ class HandymanRepository(
             specialties = get("specialties") as? List<String> ?: emptyList(),
             isFavorite = false,
             isVerified = getBoolean("isVerified") ?: false,
-            verificationStatus = getString("verificationStatus") ?: "none"
+            verificationStatus = getString("verificationStatus") ?: "none",
+            isPublished = getBoolean("isPublished") ?: true,
+            professionRequestStatus = getString("professionRequestStatus") ?: "approved",
+            requestedProfession = getString("requestedProfession").orEmpty()
         )
     }
 }
