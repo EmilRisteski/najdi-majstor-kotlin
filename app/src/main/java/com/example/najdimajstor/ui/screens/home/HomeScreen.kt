@@ -28,6 +28,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.example.najdimajstor.data.mock.MockData
 import com.example.najdimajstor.data.model.Handyman
+import com.example.najdimajstor.data.repository.FavoriteRepository
 import com.example.najdimajstor.data.repository.HandymanRepository
 import com.example.najdimajstor.ui.components.BottomNavItem
 import com.example.najdimajstor.ui.components.CategoryCard
@@ -44,10 +45,14 @@ fun HomeScreen(
     onProfileClick: () -> Unit
 ) {
     val handymanRepository = remember { HandymanRepository() }
+    val favoriteRepository = remember { FavoriteRepository() }
 
     var handymen by remember { mutableStateOf<List<Handyman>>(emptyList()) }
+    var favoriteIds by remember { mutableStateOf<Set<String>>(emptySet()) }
+
     var isLoading by remember { mutableStateOf(true) }
-    var errorMessage by remember { mutableStateOf<String?>(null) }
+    var loadErrorMessage by remember { mutableStateOf<String?>(null) }
+    var favoriteErrorMessage by remember { mutableStateOf<String?>(null) }
 
     var searchQuery by remember { mutableStateOf("") }
     var selectedCategoryId by remember { mutableStateOf<String?>(null) }
@@ -61,8 +66,16 @@ fun HomeScreen(
     LaunchedEffect(Unit) {
         handymanRepository.getHandymen { result, error ->
             handymen = result
-            errorMessage = error
+            loadErrorMessage = error
             isLoading = false
+        }
+
+        favoriteRepository.getFavoriteIds { result, error ->
+            if (error == null) {
+                favoriteIds = result
+            } else {
+                favoriteErrorMessage = error
+            }
         }
     }
 
@@ -178,6 +191,16 @@ fun HomeScreen(
                 )
             }
 
+            if (favoriteErrorMessage != null) {
+                item {
+                    Text(
+                        text = favoriteErrorMessage ?: "",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
+            }
+
             if (!isShowingResults) {
                 item {
                     Text(
@@ -254,10 +277,10 @@ fun HomeScreen(
                     }
                 }
 
-                errorMessage != null -> {
+                loadErrorMessage != null -> {
                     item {
                         ErrorHandymenState(
-                            message = errorMessage ?: "Неуспешно вчитување на мајстори."
+                            message = loadErrorMessage ?: "Неуспешно вчитување на мајстори."
                         )
                     }
                 }
@@ -273,9 +296,34 @@ fun HomeScreen(
                         items = filteredHandymen,
                         key = { handyman -> handyman.id }
                     ) { handyman ->
+                        val isFavorite = favoriteIds.contains(handyman.id)
+                        val visibleHandyman = handyman.copy(isFavorite = isFavorite)
+
                         HandymanCard(
-                            handyman = handyman,
-                            onClick = { onHandymanClick(handyman.id) }
+                            handyman = visibleHandyman,
+                            onClick = { onHandymanClick(handyman.id) },
+                            onFavoriteClick = {
+                                val previousFavoriteIds = favoriteIds
+
+                                favoriteIds = if (isFavorite) {
+                                    favoriteIds - handyman.id
+                                } else {
+                                    favoriteIds + handyman.id
+                                }
+
+                                favoriteErrorMessage = null
+
+                                favoriteRepository.toggleFavorite(
+                                    handymanId = handyman.id,
+                                    isCurrentlyFavorite = isFavorite
+                                ) { success, error ->
+                                    if (!success) {
+                                        favoriteIds = previousFavoriteIds
+                                        favoriteErrorMessage =
+                                            error ?: "Неуспешно зачувување на мајсторот."
+                                    }
+                                }
+                            }
                         )
                     }
                 }
