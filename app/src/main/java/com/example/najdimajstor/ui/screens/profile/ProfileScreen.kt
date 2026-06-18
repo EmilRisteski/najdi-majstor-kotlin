@@ -1,6 +1,7 @@
 package com.example.najdimajstor.ui.screens.profile
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -39,10 +40,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.example.najdimajstor.data.mock.MockData
+import com.example.najdimajstor.data.repository.FavoriteRepository
 import com.example.najdimajstor.ui.components.BottomNavItem
 import com.example.najdimajstor.ui.components.MainBottomBar
 import com.example.najdimajstor.ui.theme.NajdiGold
@@ -51,7 +53,6 @@ import com.example.najdimajstor.ui.theme.NajdiNavy
 import com.example.najdimajstor.ui.theme.NajdiTextLight
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
-import androidx.compose.ui.graphics.Color
 
 @Composable
 fun ProfileScreen(
@@ -59,7 +60,9 @@ fun ProfileScreen(
     onFavoritesClick: () -> Unit,
     onLogoutClick: () -> Unit
 ) {
-    val savedCount = MockData.handymen.count { it.isFavorite }
+    val favoriteRepository = remember { FavoriteRepository() }
+
+    var savedCount by remember { mutableStateOf(0) }
 
     var fullName by remember { mutableStateOf("Корисник") }
     var email by remember { mutableStateOf("") }
@@ -74,6 +77,12 @@ fun ProfileScreen(
         if (userId == null) {
             isLoading = false
             return@LaunchedEffect
+        }
+
+        favoriteRepository.getFavoriteIds { favoriteIds, error ->
+            if (error == null) {
+                savedCount = favoriteIds.size
+            }
         }
 
         FirebaseFirestore.getInstance()
@@ -290,7 +299,7 @@ private fun StatCard(
 @Composable
 private fun PersonalInfoCard(
     email: String,
-    phone: String,
+    phone: String
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -325,7 +334,6 @@ private fun PersonalInfoCard(
                 label = "Телефон",
                 value = phone
             )
-
         }
     }
 }
@@ -476,7 +484,7 @@ private fun ProfileActionRow(
 private fun IconBox(
     icon: ImageVector
 ) {
-    val isDarkTheme = androidx.compose.foundation.isSystemInDarkTheme()
+    val isDarkTheme = isSystemInDarkTheme()
 
     val boxColor = if (isDarkTheme) {
         Color(0xFF1E293B)
