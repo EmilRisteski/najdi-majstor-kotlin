@@ -48,7 +48,9 @@ object MockData {
             isAvailable = true,
             description = "Професионален водоводџија со повеќе од 15 години искуство во поправки, инсталации и итни интервенции.",
             specialties = listOf("Поправка на цевки", "Инсталации", "Итни интервенции"),
-            isFavorite = true
+            isFavorite = true,
+            isVerified = true,
+            verificationStatus = "approved"
         ),
         Handyman(
             id = "2",

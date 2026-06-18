@@ -50,6 +50,11 @@ fun HandymanCard(
         Color(0xFFF1F5F9)
     }
 
+    val professionInitial = handyman.profession
+        .firstOrNull()
+        ?.toString()
+        ?: "?"
+
     Card(
         modifier = modifier
             .fillMaxWidth()
@@ -77,7 +82,7 @@ fun HandymanCard(
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
-                        text = handyman.profession.first().toString(),
+                        text = professionInitial,
                         style = MaterialTheme.typography.headlineMedium,
                         fontWeight = FontWeight.Bold,
                         color = NajdiGold
@@ -99,14 +104,16 @@ fun HandymanCard(
                             color = MaterialTheme.colorScheme.onSurface
                         )
 
-                        Spacer(modifier = Modifier.size(6.dp))
+                        if (handyman.isVerified) {
+                            Spacer(modifier = Modifier.size(6.dp))
 
-                        Icon(
-                            imageVector = Icons.Default.Verified,
-                            contentDescription = null,
-                            tint = NajdiGold,
-                            modifier = Modifier.size(18.dp)
-                        )
+                            Icon(
+                                imageVector = Icons.Default.Verified,
+                                contentDescription = "Верификуван мајстор",
+                                tint = NajdiGold,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
                     }
 
                     Text(
