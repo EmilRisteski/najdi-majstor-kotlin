@@ -24,7 +24,10 @@ class HandymanRepository(
                 onResult(handymen, null)
             }
             .addOnFailureListener { exception ->
-                onResult(emptyList(), exception.message ?: "Неуспешно вчитување на мајстори.")
+                onResult(
+                    emptyList(),
+                    exception.message ?: "Неуспешно вчитување на мајстори."
+                )
             }
     }
 
@@ -48,7 +51,10 @@ class HandymanRepository(
                 }
             }
             .addOnFailureListener { exception ->
-                onResult(null, exception.message ?: "Неуспешно вчитување на мајсторот.")
+                onResult(
+                    null,
+                    exception.message ?: "Неуспешно вчитување на мајсторот."
+                )
             }
     }
 
@@ -93,7 +99,41 @@ class HandymanRepository(
                 onResult(true, null)
             }
             .addOnFailureListener { exception ->
-                onResult(false, exception.message ?: "Неуспешно зачувување на профилот.")
+                onResult(
+                    false,
+                    exception.message ?: "Неуспешно зачувување на профилот."
+                )
+            }
+    }
+
+    fun requestVerification(
+        onResult: (Boolean, String?) -> Unit
+    ) {
+        val userId = auth.currentUser?.uid
+
+        if (userId == null) {
+            onResult(false, "Корисникот не е најавен.")
+            return
+        }
+
+        firestore.collection("handymen")
+            .document(userId)
+            .update(
+                mapOf(
+                    "verificationStatus" to "pending",
+                    "isVerified" to false,
+                    "verificationRequestedAt" to FieldValue.serverTimestamp(),
+                    "updatedAt" to FieldValue.serverTimestamp()
+                )
+            )
+            .addOnSuccessListener {
+                onResult(true, null)
+            }
+            .addOnFailureListener { exception ->
+                onResult(
+                    false,
+                    exception.message ?: "Неуспешно испраќање на барањето."
+                )
             }
     }
 

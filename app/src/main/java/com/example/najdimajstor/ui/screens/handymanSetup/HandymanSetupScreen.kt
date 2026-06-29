@@ -70,6 +70,13 @@ fun HandymanSetupScreen(
     var description by remember { mutableStateOf("") }
     var specialtiesText by remember { mutableStateOf("") }
 
+    var hasSavedProfile by remember { mutableStateOf(false) }
+    var isPublished by remember { mutableStateOf(false) }
+
+    var isVerified by remember { mutableStateOf(false) }
+    var verificationStatus by remember { mutableStateOf("none") }
+    var isRequestingVerification by remember { mutableStateOf(false) }
+
     var isSaving by remember { mutableStateOf(false) }
     var message by remember { mutableStateOf<String?>(null) }
     var isError by remember { mutableStateOf(false) }
@@ -80,6 +87,13 @@ fun HandymanSetupScreen(
         isCustomProfession &&
                 professionRequestStatus == "pending" &&
                 customProfession.isNotBlank()
+
+    val canRequestVerification =
+        hasSavedProfile &&
+                isPublished &&
+                !isCustomProfession &&
+                selectedProfession.isNotBlank() &&
+                professionRequestStatus == "approved"
 
     LaunchedEffect(Unit) {
         val currentUser = FirebaseAuth.getInstance().currentUser
@@ -96,14 +110,21 @@ fun HandymanSetupScreen(
             .document(userId)
             .get()
             .addOnSuccessListener { document ->
-                fullName = document.getString("fullName").orEmpty().ifBlank {
-                    currentUser.email.orEmpty()
+                val savedName = document.getString("fullName").orEmpty()
+
+                if (fullName.isBlank()) {
+                    fullName = savedName.ifBlank {
+                        currentUser.email.orEmpty()
+                    }
                 }
             }
 
         handymanRepository.getHandymanById(userId) { handyman, _ ->
             if (handyman != null) {
-                fullName = handyman.name
+                hasSavedProfile = true
+                isPublished = handyman.isPublished
+
+                fullName = handyman.name.ifBlank { fullName }
                 city = handyman.city
                 priceFrom = handyman.priceFrom?.toString().orEmpty()
                 priceTo = handyman.priceTo?.toString().orEmpty()
@@ -115,6 +136,9 @@ fun HandymanSetupScreen(
                     .orEmpty()
                 description = handyman.description
                 specialtiesText = handyman.specialties.joinToString(", ")
+
+                isVerified = handyman.isVerified
+                verificationStatus = handyman.verificationStatus
 
                 professionRequestStatus = handyman.professionRequestStatus
                 customProfession = handyman.requestedProfession
@@ -248,9 +272,7 @@ fun HandymanSetupScreen(
 
                     OutlinedTextField(
                         value = customProfession,
-                        onValueChange = {
-                            customProfession = it
-                        },
+                        onValueChange = { customProfession = it },
                         modifier = Modifier.fillMaxWidth(),
                         label = { Text("Внеси професија") },
                         placeholder = {
@@ -276,6 +298,42 @@ fun HandymanSetupScreen(
                     modifier = Modifier.fillMaxWidth(),
                     label = { Text("Град") },
                     singleLine = true
+                )
+            }
+
+            if (hasPendingProfessionRequest) {
+                SetupSectionCard(title = "Верификација") {
+                    Text(
+                        text = "Верификацијата ќе биде достапна откако барањето за професијата ќе биде одобрено.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = NajdiMutedText
+                    )
+                }
+            } else {
+                VerificationSection(
+                    hasSavedProfile = hasSavedProfile,
+                    canRequestVerification = canRequestVerification,
+                    isVerified = isVerified,
+                    verificationStatus = verificationStatus,
+                    isRequestingVerification = isRequestingVerification,
+                    onRequestVerification = {
+                        isRequestingVerification = true
+                        message = null
+                        isError = false
+
+                        handymanRepository.requestVerification { success, error ->
+                            isRequestingVerification = false
+
+                            if (success) {
+                                verificationStatus = "pending"
+                                isVerified = false
+                                message = "Барањето за верификација е успешно испратено."
+                            } else {
+                                message = error ?: "Неуспешно испраќање на барањето."
+                                isError = true
+                            }
+                        }
+                    }
                 )
             }
 
@@ -436,6 +494,12 @@ fun HandymanSetupScreen(
 
                             val isPendingCustomProfession = isCustomProfession
 
+                            val savedVerificationStatus =
+                                if (isPendingCustomProfession) "none" else verificationStatus
+
+                            val savedIsVerified =
+                                if (isPendingCustomProfession) false else isVerified
+
                             val handyman = Handyman(
                                 name = fullName.trim(),
                                 profession = if (isPendingCustomProfession) {
@@ -454,8 +518,8 @@ fun HandymanSetupScreen(
                                 isAvailable = isAvailable,
                                 description = description.trim(),
                                 specialties = specialties,
-                                isVerified = false,
-                                verificationStatus = "none",
+                                isVerified = savedIsVerified,
+                                verificationStatus = savedVerificationStatus,
                                 isPublished = !isPendingCustomProfession,
                                 professionRequestStatus = if (isPendingCustomProfession) {
                                     "pending"
@@ -473,15 +537,17 @@ fun HandymanSetupScreen(
                                 isSaving = false
 
                                 if (success) {
+                                    hasSavedProfile = true
+                                    isPublished = handyman.isPublished
                                     professionRequestStatus = handyman.professionRequestStatus
+                                    verificationStatus = handyman.verificationStatus
+                                    isVerified = handyman.isVerified
 
                                     message = if (isPendingCustomProfession) {
                                         "Твоето барање за додавање на професијата е во обработка."
                                     } else {
                                         "Мајсторскиот профил е успешно зачуван."
                                     }
-
-                                    isError = false
                                 } else {
                                     message = error ?: "Неуспешно зачувување на профилот."
                                     isError = true
@@ -500,6 +566,90 @@ fun HandymanSetupScreen(
             }
 
             Spacer(modifier = Modifier.height(20.dp))
+        }
+    }
+}
+
+@Composable
+private fun VerificationSection(
+    hasSavedProfile: Boolean,
+    canRequestVerification: Boolean,
+    isVerified: Boolean,
+    verificationStatus: String,
+    isRequestingVerification: Boolean,
+    onRequestVerification: () -> Unit
+) {
+    SetupSectionCard(title = "Верификација") {
+        when {
+            isVerified || verificationStatus == "approved" -> {
+                Text(
+                    text = "Твојот профил е верификуван.",
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = NajdiGold
+                )
+
+                Spacer(modifier = Modifier.height(6.dp))
+
+                Text(
+                    text = "Клиентите ќе го гледаат беџот за верификуван мајстор на твојот профил.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = NajdiMutedText
+                )
+            }
+
+            verificationStatus == "pending" -> {
+                Text(
+                    text = "Барањето за верификација е во обработка.",
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = NajdiGold
+                )
+
+                Spacer(modifier = Modifier.height(6.dp))
+
+                Text(
+                    text = "Ќе добиеш верификуван беџ кога барањето ќе биде одобрено.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = NajdiMutedText
+                )
+            }
+
+            !hasSavedProfile || !canRequestVerification -> {
+                Text(
+                    text = "Прво зачувај јавен мајсторски профил за да можеш да побараш верификација.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = NajdiMutedText
+                )
+            }
+
+            else -> {
+                Text(
+                    text = "Побарај верификација",
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+
+                Spacer(modifier = Modifier.height(6.dp))
+
+                Text(
+                    text = "Верификацијата е посебна од објавувањето на профилот. Профилот останува јавно видлив и додека барањето е во обработка.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = NajdiMutedText
+                )
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                PrimaryButton(
+                    text = if (isRequestingVerification) {
+                        "Се испраќа..."
+                    } else {
+                        "Побарај верификација"
+                    },
+                    onClick = onRequestVerification
+                )
+            }
         }
     }
 }
