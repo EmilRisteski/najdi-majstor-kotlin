@@ -60,6 +60,7 @@ fun HandymanSetupScreen(
     var isCustomProfession by remember { mutableStateOf(false) }
     var customProfession by remember { mutableStateOf("") }
     var professionRequestStatus by remember { mutableStateOf("approved") }
+    var professionRejectionReason by remember { mutableStateOf("") }
 
     var city by remember { mutableStateOf("") }
     var priceFrom by remember { mutableStateOf("") }
@@ -75,6 +76,7 @@ fun HandymanSetupScreen(
 
     var isVerified by remember { mutableStateOf(false) }
     var verificationStatus by remember { mutableStateOf("none") }
+    var verificationRejectionReason by remember { mutableStateOf("") }
     var isRequestingVerification by remember { mutableStateOf(false) }
 
     var isSaving by remember { mutableStateOf(false) }
@@ -88,12 +90,18 @@ fun HandymanSetupScreen(
                 professionRequestStatus == "pending" &&
                 customProfession.isNotBlank()
 
+    val hasRejectedProfessionRequest =
+        isCustomProfession &&
+                professionRequestStatus == "rejected" &&
+                customProfession.isNotBlank()
+
     val canRequestVerification =
         hasSavedProfile &&
                 isPublished &&
                 !isCustomProfession &&
                 selectedProfession.isNotBlank() &&
-                professionRequestStatus == "approved"
+                professionRequestStatus == "approved" &&
+                verificationStatus in listOf("none", "rejected")
 
     LaunchedEffect(Unit) {
         val currentUser = FirebaseAuth.getInstance().currentUser
@@ -139,12 +147,14 @@ fun HandymanSetupScreen(
 
                 isVerified = handyman.isVerified
                 verificationStatus = handyman.verificationStatus
+                verificationRejectionReason = handyman.verificationRejectionReason
 
                 professionRequestStatus = handyman.professionRequestStatus
                 customProfession = handyman.requestedProfession
+                professionRejectionReason = handyman.professionRejectionReason
 
                 isCustomProfession =
-                    handyman.professionRequestStatus == "pending" &&
+                    handyman.professionRequestStatus in listOf("pending", "rejected") &&
                             handyman.requestedProfession.isNotBlank()
 
                 selectedProfession = if (isCustomProfession) {
@@ -168,9 +178,7 @@ fun HandymanSetupScreen(
         ) {
             Spacer(modifier = Modifier.height(8.dp))
 
-            IconButton(
-                onClick = onBackClick
-            ) {
+            IconButton(onClick = onBackClick) {
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                     contentDescription = "Назад",
@@ -196,6 +204,13 @@ fun HandymanSetupScreen(
             if (hasPendingProfessionRequest) {
                 PendingProfessionRequestCard(
                     profession = customProfession
+                )
+            }
+
+            if (hasRejectedProfessionRequest) {
+                RejectedProfessionRequestCard(
+                    profession = customProfession,
+                    reason = professionRejectionReason
                 )
             }
 
@@ -257,7 +272,12 @@ fun HandymanSetupScreen(
                             selectedProfession = ""
                             isCustomProfession = true
 
-                            if (professionRequestStatus != "pending") {
+                            if (
+                                professionRequestStatus !in listOf(
+                                    "pending",
+                                    "rejected"
+                                )
+                            ) {
                                 professionRequestStatus = "approved"
                             }
                         },
@@ -284,7 +304,11 @@ fun HandymanSetupScreen(
                     Spacer(modifier = Modifier.height(6.dp))
 
                     Text(
-                        text = "Оваа професија ќе биде испратена на одобрување. Профилот нема да биде јавно прикажан додека не биде одобрена.",
+                        text = if (hasRejectedProfessionRequest) {
+                            "Можеш да ја измениш професијата и повторно да испратиш барање."
+                        } else {
+                            "Оваа професија ќе биде испратена на одобрување. Профилот нема да биде јавно прикажан додека не биде одобрена."
+                        },
                         style = MaterialTheme.typography.bodySmall,
                         color = NajdiMutedText
                     )
@@ -301,10 +325,14 @@ fun HandymanSetupScreen(
                 )
             }
 
-            if (hasPendingProfessionRequest) {
+            if (hasPendingProfessionRequest || hasRejectedProfessionRequest) {
                 SetupSectionCard(title = "Верификација") {
                     Text(
-                        text = "Верификацијата ќе биде достапна откако барањето за професијата ќе биде одобрено.",
+                        text = if (hasPendingProfessionRequest) {
+                            "Верификацијата ќе биде достапна откако барањето за професијата ќе биде одобрено."
+                        } else {
+                            "Верификацијата ќе биде достапна откако ќе избереш одобрена професија и ќе зачуваш јавен профил."
+                        },
                         style = MaterialTheme.typography.bodyMedium,
                         color = NajdiMutedText
                     )
@@ -315,6 +343,7 @@ fun HandymanSetupScreen(
                     canRequestVerification = canRequestVerification,
                     isVerified = isVerified,
                     verificationStatus = verificationStatus,
+                    verificationRejectionReason = verificationRejectionReason,
                     isRequestingVerification = isRequestingVerification,
                     onRequestVerification = {
                         isRequestingVerification = true
@@ -326,6 +355,7 @@ fun HandymanSetupScreen(
 
                             if (success) {
                                 verificationStatus = "pending"
+                                verificationRejectionReason = ""
                                 isVerified = false
                                 message = "Барањето за верификација е успешно испратено."
                             } else {
@@ -473,7 +503,9 @@ fun HandymanSetupScreen(
                             isError = true
                         }
 
-                        !isPriceNegotiable && from != null && to != null && to < from -> {
+                        !isPriceNegotiable && from != null &&
+                                to != null &&
+                                to < from -> {
                             message = "Крајната цена не може да биде помала од почетната."
                             isError = true
                         }
@@ -494,12 +526,6 @@ fun HandymanSetupScreen(
 
                             val isPendingCustomProfession = isCustomProfession
 
-                            val savedVerificationStatus =
-                                if (isPendingCustomProfession) "none" else verificationStatus
-
-                            val savedIsVerified =
-                                if (isPendingCustomProfession) false else isVerified
-
                             val handyman = Handyman(
                                 name = fullName.trim(),
                                 profession = if (isPendingCustomProfession) {
@@ -518,8 +544,16 @@ fun HandymanSetupScreen(
                                 isAvailable = isAvailable,
                                 description = description.trim(),
                                 specialties = specialties,
-                                isVerified = savedIsVerified,
-                                verificationStatus = savedVerificationStatus,
+                                isVerified = if (isPendingCustomProfession) {
+                                    false
+                                } else {
+                                    isVerified
+                                },
+                                verificationStatus = if (isPendingCustomProfession) {
+                                    "none"
+                                } else {
+                                    verificationStatus
+                                },
                                 isPublished = !isPendingCustomProfession,
                                 professionRequestStatus = if (isPendingCustomProfession) {
                                     "pending"
@@ -542,6 +576,7 @@ fun HandymanSetupScreen(
                                     professionRequestStatus = handyman.professionRequestStatus
                                     verificationStatus = handyman.verificationStatus
                                     isVerified = handyman.isVerified
+                                    professionRejectionReason = ""
 
                                     message = if (isPendingCustomProfession) {
                                         "Твоето барање за додавање на професијата е во обработка."
@@ -576,6 +611,7 @@ private fun VerificationSection(
     canRequestVerification: Boolean,
     isVerified: Boolean,
     verificationStatus: String,
+    verificationRejectionReason: String,
     isRequestingVerification: Boolean,
     onRequestVerification: () -> Unit
 ) {
@@ -613,6 +649,38 @@ private fun VerificationSection(
                     style = MaterialTheme.typography.bodyMedium,
                     color = NajdiMutedText
                 )
+            }
+
+            verificationStatus == "rejected" -> {
+                Text(
+                    text = "Барањето за верификација е одбиено.",
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.error
+                )
+
+                if (verificationRejectionReason.isNotBlank()) {
+                    Spacer(modifier = Modifier.height(6.dp))
+
+                    Text(
+                        text = "Причина: $verificationRejectionReason",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = NajdiMutedText
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                if (canRequestVerification) {
+                    PrimaryButton(
+                        text = if (isRequestingVerification) {
+                            "Се испраќа..."
+                        } else {
+                            "Испрати ново барање"
+                        },
+                        onClick = onRequestVerification
+                    )
+                }
             }
 
             !hasSavedProfile || !canRequestVerification -> {
@@ -681,6 +749,57 @@ private fun PendingProfessionRequestCard(
                 text = "Твоето барање за додавање на професијата „$profession“ е во обработка. Профилот нема да биде прикажан јавно додека професијата не биде одобрена.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f)
+            )
+        }
+    }
+}
+
+@Composable
+private fun RejectedProfessionRequestCard(
+    profession: String,
+    reason: String
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.errorContainer
+        )
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp)
+        ) {
+            Text(
+                text = "Барањето за професија е одбиено",
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.error
+            )
+
+            Spacer(modifier = Modifier.height(6.dp))
+
+            Text(
+                text = "Барањето за професијата „$profession“ не е одобрено.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onErrorContainer
+            )
+
+            if (reason.isNotBlank()) {
+                Spacer(modifier = Modifier.height(6.dp))
+
+                Text(
+                    text = "Причина: $reason",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onErrorContainer
+                )
+            }
+
+            Spacer(modifier = Modifier.height(6.dp))
+
+            Text(
+                text = "Можеш да внесеш друга професија или да избереш една од постоечките професии и повторно да зачуваш.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onErrorContainer
             )
         }
     }

@@ -18,8 +18,8 @@ class HandymanRepository(
             .get()
             .addOnSuccessListener { snapshot ->
                 val handymen = snapshot.documents
-                    .map { document -> document.toHandyman() }
-                    .filter { handyman -> handyman.isPublished }
+                    .map { it.toHandyman() }
+                    .filter { it.isPublished }
 
                 onResult(handymen, null)
             }
@@ -77,7 +77,7 @@ class HandymanRepository(
             .addOnSuccessListener { existingDocument ->
                 val isNewProfile = !existingDocument.exists()
 
-                val requestedCustomProfession =
+                val isCustomProfessionRequest =
                     handyman.professionRequestStatus == "pending" &&
                             handyman.profession.isBlank() &&
                             handyman.requestedProfession.isNotBlank()
@@ -91,7 +91,7 @@ class HandymanRepository(
                 if (
                     !isNewProfile &&
                     existingRequestStatus == "pending" &&
-                    requestedCustomProfession &&
+                    isCustomProfessionRequest &&
                     existingRequestedProfession != handyman.requestedProfession.trim()
                 ) {
                     onResult(
@@ -101,7 +101,7 @@ class HandymanRepository(
                     return@addOnSuccessListener
                 }
 
-                val profileData = hashMapOf(
+                val profileData = hashMapOf<String, Any?>(
                     "name" to handyman.name,
                     "profession" to handyman.profession,
                     "city" to handyman.city,
@@ -123,31 +123,35 @@ class HandymanRepository(
                         profileData["reviewCount"] = 0
                         profileData["isVerified"] = false
                         profileData["verificationStatus"] = "none"
-                        profileData["isPublished"] = !requestedCustomProfession
+                        profileData["verificationRejectionReason"] = ""
+                        profileData["isPublished"] = !isCustomProfessionRequest
                         profileData["professionRequestStatus"] =
-                            if (requestedCustomProfession) "pending" else "approved"
+                            if (isCustomProfessionRequest) "pending" else "approved"
                         profileData["requestedProfession"] =
-                            if (requestedCustomProfession) {
+                            if (isCustomProfessionRequest) {
                                 handyman.requestedProfession.trim()
                             } else {
                                 ""
                             }
+                        profileData["professionRejectionReason"] = ""
                         profileData["createdAt"] = FieldValue.serverTimestamp()
                     }
 
-                    requestedCustomProfession &&
+                    isCustomProfessionRequest &&
                             existingRequestStatus != "pending" -> {
                         profileData["isPublished"] = false
                         profileData["professionRequestStatus"] = "pending"
                         profileData["requestedProfession"] =
                             handyman.requestedProfession.trim()
+                        profileData["professionRejectionReason"] = ""
                     }
 
-                    existingRequestStatus == "pending" &&
-                            !requestedCustomProfession -> {
+                    !isCustomProfessionRequest &&
+                            existingRequestStatus in listOf("pending", "rejected") -> {
                         profileData["isPublished"] = true
                         profileData["professionRequestStatus"] = "approved"
                         profileData["requestedProfession"] = ""
+                        profileData["professionRejectionReason"] = ""
                     }
                 }
 
@@ -192,7 +196,7 @@ class HandymanRepository(
                     return@addOnSuccessListener
                 }
 
-                val isPublished = document.getBoolean("isPublished") ?: true
+                val isPublished = document.getBoolean("isPublished") ?: false
                 val isVerified = document.getBoolean("isVerified") ?: false
                 val verificationStatus =
                     document.getString("verificationStatus") ?: "none"
@@ -220,6 +224,7 @@ class HandymanRepository(
                             .update(
                                 mapOf(
                                     "verificationStatus" to "pending",
+                                    "verificationRejectionReason" to "",
                                     "verificationRequestedAt" to FieldValue.serverTimestamp(),
                                     "updatedAt" to FieldValue.serverTimestamp()
                                 )
@@ -265,9 +270,14 @@ class HandymanRepository(
             isFavorite = false,
             isVerified = getBoolean("isVerified") ?: false,
             verificationStatus = getString("verificationStatus") ?: "none",
+            verificationRejectionReason =
+                getString("verificationRejectionReason").orEmpty(),
             isPublished = getBoolean("isPublished") ?: true,
-            professionRequestStatus = getString("professionRequestStatus") ?: "approved",
-            requestedProfession = getString("requestedProfession").orEmpty()
+            professionRequestStatus =
+                getString("professionRequestStatus") ?: "approved",
+            requestedProfession = getString("requestedProfession").orEmpty(),
+            professionRejectionReason =
+                getString("professionRejectionReason").orEmpty()
         )
     }
 }

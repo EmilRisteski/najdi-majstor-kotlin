@@ -17,9 +17,13 @@ data class Handyman(
     val description: String = "",
     val specialties: List<String> = emptyList(),
     val isFavorite: Boolean = false,
+
     val isVerified: Boolean = false,
     val verificationStatus: String = "none",
+    val verificationRejectionReason: String = "",
+
     val isPublished: Boolean = true,
     val professionRequestStatus: String = "approved",
-    val requestedProfession: String = ""
+    val requestedProfession: String = "",
+    val professionRejectionReason: String = ""
 )

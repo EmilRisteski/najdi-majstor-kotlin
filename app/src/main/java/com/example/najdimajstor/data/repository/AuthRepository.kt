@@ -1,7 +1,12 @@
 package com.example.najdimajstor.data.repository
 
 import com.example.najdimajstor.data.model.UserRole
+import com.google.firebase.FirebaseNetworkException
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.auth.FirebaseAuthInvalidCredentialsException
+import com.google.firebase.auth.FirebaseAuthUserCollisionException
+import com.google.firebase.auth.FirebaseAuthWeakPasswordException
+import com.google.firebase.FirebaseTooManyRequestsException
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 
@@ -22,7 +27,7 @@ class AuthRepository(
                 val userId = result.user?.uid
 
                 if (userId == null) {
-                    onResult(false, "Неуспешна регистрација. Обидете се повторно.")
+                    onResult(false, "Неуспешна регистрација. Обиди се повторно.")
                     return@addOnSuccessListener
                 }
 
@@ -41,12 +46,15 @@ class AuthRepository(
                     .addOnSuccessListener {
                         onResult(true, null)
                     }
-                    .addOnFailureListener { exception ->
-                        onResult(false, exception.message ?: "Профилот не беше зачуван.")
+                    .addOnFailureListener {
+                        onResult(
+                            false,
+                            "Профилот е креиран, но информациите не беа зачувани. Обиди се повторно."
+                        )
                     }
             }
             .addOnFailureListener { exception ->
-                onResult(false, exception.message ?: "Регистрацијата не успеа.")
+                onResult(false, getAuthErrorMessage(exception))
             }
     }
 
@@ -74,5 +82,27 @@ class AuthRepository(
 
     fun getCurrentUserId(): String? {
         return auth.currentUser?.uid
+    }
+
+    private fun getAuthErrorMessage(exception: Exception): String {
+        return when (exception) {
+            is FirebaseAuthWeakPasswordException ->
+                "Лозинката е премногу слаба. Внеси најмалку 6 знаци."
+
+            is FirebaseAuthUserCollisionException ->
+                "Веќе постои профил со оваа е-пошта."
+
+            is FirebaseAuthInvalidCredentialsException ->
+                "Внеси валидна е-пошта."
+
+            is FirebaseNetworkException ->
+                "Нема интернет-конекција. Провери ја мрежата и обиди се повторно."
+
+            is FirebaseTooManyRequestsException ->
+                "Премногу обиди. Почекај малку и обиди се повторно."
+
+            else ->
+                "Регистрацијата не успеа. Обиди се повторно."
+        }
     }
 }
