@@ -12,6 +12,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -36,7 +38,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.unit.dp
 import com.example.najdimajstor.data.mock.MockData
 import com.example.najdimajstor.data.model.Handyman
@@ -46,7 +47,6 @@ import com.example.najdimajstor.ui.theme.NajdiGold
 import com.example.najdimajstor.ui.theme.NajdiMutedText
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
-import androidx.compose.foundation.shape.RoundedCornerShape
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -57,6 +57,10 @@ fun HandymanSetupScreen(
 
     var fullName by remember { mutableStateOf("") }
     var selectedProfession by remember { mutableStateOf("") }
+    var isCustomProfession by remember { mutableStateOf(false) }
+    var customProfession by remember { mutableStateOf("") }
+    var professionRequestStatus by remember { mutableStateOf("approved") }
+
     var city by remember { mutableStateOf("") }
     var priceFrom by remember { mutableStateOf("") }
     var priceTo by remember { mutableStateOf("") }
@@ -71,6 +75,11 @@ fun HandymanSetupScreen(
     var isError by remember { mutableStateOf(false) }
 
     val professions = MockData.serviceCategories.map { it.title }
+
+    val hasPendingProfessionRequest =
+        isCustomProfession &&
+                professionRequestStatus == "pending" &&
+                customProfession.isNotBlank()
 
     LaunchedEffect(Unit) {
         val currentUser = FirebaseAuth.getInstance().currentUser
@@ -95,15 +104,30 @@ fun HandymanSetupScreen(
         handymanRepository.getHandymanById(userId) { handyman, _ ->
             if (handyman != null) {
                 fullName = handyman.name
-                selectedProfession = handyman.profession
                 city = handyman.city
                 priceFrom = handyman.priceFrom?.toString().orEmpty()
                 priceTo = handyman.priceTo?.toString().orEmpty()
                 isPriceNegotiable = handyman.isPriceNegotiable
                 isAvailable = handyman.isAvailable
-                experienceYears = handyman.experienceYears.toString()
+                experienceYears = handyman.experienceYears
+                    .takeIf { it > 0 }
+                    ?.toString()
+                    .orEmpty()
                 description = handyman.description
                 specialtiesText = handyman.specialties.joinToString(", ")
+
+                professionRequestStatus = handyman.professionRequestStatus
+                customProfession = handyman.requestedProfession
+
+                isCustomProfession =
+                    handyman.professionRequestStatus == "pending" &&
+                            handyman.requestedProfession.isNotBlank()
+
+                selectedProfession = if (isCustomProfession) {
+                    ""
+                } else {
+                    handyman.profession
+                }
             }
         }
     }
@@ -145,6 +169,12 @@ fun HandymanSetupScreen(
                 )
             }
 
+            if (hasPendingProfessionRequest) {
+                PendingProfessionRequestCard(
+                    profession = customProfession
+                )
+            }
+
             if (message != null) {
                 Text(
                     text = message.orEmpty(),
@@ -183,15 +213,59 @@ fun HandymanSetupScreen(
                 ) {
                     professions.forEach { profession ->
                         FilterChip(
-                            selected = selectedProfession == profession,
+                            selected = !isCustomProfession &&
+                                    selectedProfession == profession,
                             onClick = {
                                 selectedProfession = profession
+                                isCustomProfession = false
+                                customProfession = ""
+                                professionRequestStatus = "approved"
                             },
                             label = {
                                 Text(text = profession)
                             }
                         )
                     }
+
+                    FilterChip(
+                        selected = isCustomProfession,
+                        onClick = {
+                            selectedProfession = ""
+                            isCustomProfession = true
+
+                            if (professionRequestStatus != "pending") {
+                                professionRequestStatus = "approved"
+                            }
+                        },
+                        label = {
+                            Text(text = "Друга професија")
+                        }
+                    )
+                }
+
+                if (isCustomProfession) {
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    OutlinedTextField(
+                        value = customProfession,
+                        onValueChange = {
+                            customProfession = it
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        label = { Text("Внеси професија") },
+                        placeholder = {
+                            Text("Пр. Клима сервисер")
+                        },
+                        singleLine = true
+                    )
+
+                    Spacer(modifier = Modifier.height(6.dp))
+
+                    Text(
+                        text = "Оваа професија ќе биде испратена на одобрување. Профилот нема да биде јавно прикажан додека не биде одобрена.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = NajdiMutedText
+                    )
                 }
 
                 Spacer(modifier = Modifier.height(12.dp))
@@ -308,6 +382,7 @@ fun HandymanSetupScreen(
                     val from = priceFrom.toIntOrNull()
                     val to = priceTo.toIntOrNull()
                     val years = experienceYears.toIntOrNull() ?: 0
+                    val trimmedCustomProfession = customProfession.trim()
 
                     when {
                         fullName.isBlank() -> {
@@ -315,8 +390,13 @@ fun HandymanSetupScreen(
                             isError = true
                         }
 
-                        selectedProfession.isBlank() -> {
+                        !isCustomProfession && selectedProfession.isBlank() -> {
                             message = "Избери професија."
+                            isError = true
+                        }
+
+                        isCustomProfession && trimmedCustomProfession.length < 2 -> {
+                            message = "Внеси ја професијата што сакаш да ја додадеш."
                             isError = true
                         }
 
@@ -354,9 +434,15 @@ fun HandymanSetupScreen(
                                 .map { it.trim() }
                                 .filter { it.isNotBlank() }
 
+                            val isPendingCustomProfession = isCustomProfession
+
                             val handyman = Handyman(
                                 name = fullName.trim(),
-                                profession = selectedProfession,
+                                profession = if (isPendingCustomProfession) {
+                                    ""
+                                } else {
+                                    selectedProfession
+                                },
                                 city = city.trim(),
                                 price = priceText,
                                 priceFrom = if (isPriceNegotiable) null else from,
@@ -370,16 +456,31 @@ fun HandymanSetupScreen(
                                 specialties = specialties,
                                 isVerified = false,
                                 verificationStatus = "none",
-                                isPublished = true,
-                                professionRequestStatus = "approved",
-                                requestedProfession = ""
+                                isPublished = !isPendingCustomProfession,
+                                professionRequestStatus = if (isPendingCustomProfession) {
+                                    "pending"
+                                } else {
+                                    "approved"
+                                },
+                                requestedProfession = if (isPendingCustomProfession) {
+                                    trimmedCustomProfession
+                                } else {
+                                    ""
+                                }
                             )
 
                             handymanRepository.saveHandymanProfile(handyman) { success, error ->
                                 isSaving = false
 
                                 if (success) {
-                                    message = "Мајсторскиот профил е успешно зачуван."
+                                    professionRequestStatus = handyman.professionRequestStatus
+
+                                    message = if (isPendingCustomProfession) {
+                                        "Твоето барање за додавање на професијата е во обработка."
+                                    } else {
+                                        "Мајсторскиот профил е успешно зачуван."
+                                    }
+
                                     isError = false
                                 } else {
                                     message = error ?: "Неуспешно зачувување на профилот."
@@ -399,6 +500,38 @@ fun HandymanSetupScreen(
             }
 
             Spacer(modifier = Modifier.height(20.dp))
+        }
+    }
+}
+
+@Composable
+private fun PendingProfessionRequestCard(
+    profession: String
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = NajdiGold.copy(alpha = 0.12f)
+        )
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp)
+        ) {
+            Text(
+                text = "Барањето е во обработка",
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.Bold,
+                color = NajdiGold
+            )
+
+            Spacer(modifier = Modifier.height(6.dp))
+
+            Text(
+                text = "Твоето барање за додавање на професијата „$profession“ е во обработка. Профилот нема да биде прикажан јавно додека професијата не биде одобрена.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f)
+            )
         }
     }
 }
