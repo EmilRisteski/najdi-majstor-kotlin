@@ -69,39 +69,104 @@ class HandymanRepository(
             return
         }
 
-        val handymanData = hashMapOf(
-            "ownerId" to userId,
-            "name" to handyman.name,
-            "profession" to handyman.profession,
-            "city" to handyman.city,
-            "price" to handyman.price,
-            "priceFrom" to handyman.priceFrom,
-            "priceTo" to handyman.priceTo,
-            "isPriceNegotiable" to handyman.isPriceNegotiable,
-            "rating" to handyman.rating,
-            "reviewCount" to handyman.reviewCount,
-            "experienceYears" to handyman.experienceYears,
-            "isAvailable" to handyman.isAvailable,
-            "description" to handyman.description,
-            "specialties" to handyman.specialties,
-            "isVerified" to handyman.isVerified,
-            "verificationStatus" to handyman.verificationStatus,
-            "isPublished" to handyman.isPublished,
-            "professionRequestStatus" to handyman.professionRequestStatus,
-            "requestedProfession" to handyman.requestedProfession,
-            "updatedAt" to FieldValue.serverTimestamp()
-        )
-
-        firestore.collection("handymen")
+        val documentReference = firestore
+            .collection("handymen")
             .document(userId)
-            .set(handymanData, SetOptions.merge())
-            .addOnSuccessListener {
-                onResult(true, null)
+
+        documentReference.get()
+            .addOnSuccessListener { existingDocument ->
+                val isNewProfile = !existingDocument.exists()
+
+                val requestedCustomProfession =
+                    handyman.professionRequestStatus == "pending" &&
+                            handyman.profession.isBlank() &&
+                            handyman.requestedProfession.isNotBlank()
+
+                val existingRequestStatus =
+                    existingDocument.getString("professionRequestStatus") ?: "approved"
+
+                val existingRequestedProfession =
+                    existingDocument.getString("requestedProfession").orEmpty()
+
+                if (
+                    !isNewProfile &&
+                    existingRequestStatus == "pending" &&
+                    requestedCustomProfession &&
+                    existingRequestedProfession != handyman.requestedProfession.trim()
+                ) {
+                    onResult(
+                        false,
+                        "Веќе имаш барање за професија во обработка. Почекај да биде одобрено или одбиено."
+                    )
+                    return@addOnSuccessListener
+                }
+
+                val profileData = hashMapOf(
+                    "name" to handyman.name,
+                    "profession" to handyman.profession,
+                    "city" to handyman.city,
+                    "price" to handyman.price,
+                    "priceFrom" to handyman.priceFrom,
+                    "priceTo" to handyman.priceTo,
+                    "isPriceNegotiable" to handyman.isPriceNegotiable,
+                    "experienceYears" to handyman.experienceYears,
+                    "isAvailable" to handyman.isAvailable,
+                    "description" to handyman.description,
+                    "specialties" to handyman.specialties,
+                    "updatedAt" to FieldValue.serverTimestamp()
+                )
+
+                when {
+                    isNewProfile -> {
+                        profileData["ownerId"] = userId
+                        profileData["rating"] = 0.0
+                        profileData["reviewCount"] = 0
+                        profileData["isVerified"] = false
+                        profileData["verificationStatus"] = "none"
+                        profileData["isPublished"] = !requestedCustomProfession
+                        profileData["professionRequestStatus"] =
+                            if (requestedCustomProfession) "pending" else "approved"
+                        profileData["requestedProfession"] =
+                            if (requestedCustomProfession) {
+                                handyman.requestedProfession.trim()
+                            } else {
+                                ""
+                            }
+                        profileData["createdAt"] = FieldValue.serverTimestamp()
+                    }
+
+                    requestedCustomProfession &&
+                            existingRequestStatus != "pending" -> {
+                        profileData["isPublished"] = false
+                        profileData["professionRequestStatus"] = "pending"
+                        profileData["requestedProfession"] =
+                            handyman.requestedProfession.trim()
+                    }
+
+                    existingRequestStatus == "pending" &&
+                            !requestedCustomProfession -> {
+                        profileData["isPublished"] = true
+                        profileData["professionRequestStatus"] = "approved"
+                        profileData["requestedProfession"] = ""
+                    }
+                }
+
+                documentReference
+                    .set(profileData, SetOptions.merge())
+                    .addOnSuccessListener {
+                        onResult(true, null)
+                    }
+                    .addOnFailureListener { exception ->
+                        onResult(
+                            false,
+                            exception.message ?: "Неуспешно зачувување на профилот."
+                        )
+                    }
             }
             .addOnFailureListener { exception ->
                 onResult(
                     false,
-                    exception.message ?: "Неуспешно зачувување на профилот."
+                    exception.message ?: "Неуспешно вчитување на профилот."
                 )
             }
     }
@@ -116,23 +181,66 @@ class HandymanRepository(
             return
         }
 
-        firestore.collection("handymen")
+        val documentReference = firestore
+            .collection("handymen")
             .document(userId)
-            .update(
-                mapOf(
-                    "verificationStatus" to "pending",
-                    "isVerified" to false,
-                    "verificationRequestedAt" to FieldValue.serverTimestamp(),
-                    "updatedAt" to FieldValue.serverTimestamp()
-                )
-            )
-            .addOnSuccessListener {
-                onResult(true, null)
+
+        documentReference.get()
+            .addOnSuccessListener { document ->
+                if (!document.exists()) {
+                    onResult(false, "Прво зачувај мајсторски профил.")
+                    return@addOnSuccessListener
+                }
+
+                val isPublished = document.getBoolean("isPublished") ?: true
+                val isVerified = document.getBoolean("isVerified") ?: false
+                val verificationStatus =
+                    document.getString("verificationStatus") ?: "none"
+                val professionRequestStatus =
+                    document.getString("professionRequestStatus") ?: "approved"
+
+                when {
+                    !isPublished || professionRequestStatus != "approved" -> {
+                        onResult(
+                            false,
+                            "Верификацијата е достапна откако професијата ќе биде одобрена."
+                        )
+                    }
+
+                    isVerified || verificationStatus == "approved" -> {
+                        onResult(false, "Твојот профил е веќе верификуван.")
+                    }
+
+                    verificationStatus == "pending" -> {
+                        onResult(false, "Веќе имаш барање за верификација во обработка.")
+                    }
+
+                    else -> {
+                        documentReference
+                            .update(
+                                mapOf(
+                                    "verificationStatus" to "pending",
+                                    "verificationRequestedAt" to FieldValue.serverTimestamp(),
+                                    "updatedAt" to FieldValue.serverTimestamp()
+                                )
+                            )
+                            .addOnSuccessListener {
+                                onResult(true, null)
+                            }
+                            .addOnFailureListener { exception ->
+                                onResult(
+                                    false,
+                                    exception.message
+                                        ?: "Неуспешно испраќање на барањето."
+                                )
+                            }
+                    }
+                }
             }
             .addOnFailureListener { exception ->
                 onResult(
                     false,
-                    exception.message ?: "Неуспешно испраќање на барањето."
+                    exception.message ?: "Неуспешно вчитување на профилот."
                 )
             }
     }
