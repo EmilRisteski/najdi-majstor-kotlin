@@ -34,6 +34,7 @@ import com.example.najdimajstor.ui.components.MainBottomBar
 fun FavoritesScreen(
     onHandymanClick: (String) -> Unit,
     onHomeClick: () -> Unit,
+    onMessagesClick: () -> Unit,
     onProfileClick: () -> Unit
 ) {
     val favoriteRepository = remember { FavoriteRepository() }
@@ -79,6 +80,7 @@ fun FavoritesScreen(
                 selectedItem = BottomNavItem.FAVORITES,
                 onHomeClick = onHomeClick,
                 onFavoritesClick = { },
+                onMessagesClick = onMessagesClick,
                 onProfileClick = onProfileClick
             )
         }

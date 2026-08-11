@@ -14,6 +14,8 @@ import com.example.najdimajstor.ui.screens.details.HandymanDetailsScreen
 import com.example.najdimajstor.ui.screens.favorites.FavoritesScreen
 import com.example.najdimajstor.ui.screens.handymanSetup.HandymanSetupScreen
 import com.example.najdimajstor.ui.screens.home.HomeScreen
+import com.example.najdimajstor.ui.screens.messages.ChatConversationScreen
+import com.example.najdimajstor.ui.screens.messages.MessagesScreen
 import com.example.najdimajstor.ui.screens.profile.ProfileScreen
 import com.example.najdimajstor.ui.screens.splash.SplashScreen
 
@@ -93,6 +95,9 @@ fun AppNavigation() {
                 onFavoritesClick = {
                     navigateBottomBar(Screen.Favorites.route)
                 },
+                onMessagesClick = {
+                    navigateBottomBar(Screen.Messages.route)
+                },
                 onProfileClick = {
                     navigateBottomBar(Screen.Profile.route)
                 }
@@ -107,6 +112,23 @@ fun AppNavigation() {
                 onHomeClick = {
                     navigateBottomBar(Screen.Home.route)
                 },
+                onMessagesClick = {
+                    navigateBottomBar(Screen.Messages.route)
+                },
+                onProfileClick = {
+                    navigateBottomBar(Screen.Profile.route)
+                }
+            )
+        }
+
+        composable(Screen.Messages.route) {
+            MessagesScreen(
+                onHomeClick = {
+                    navigateBottomBar(Screen.Home.route)
+                },
+                onFavoritesClick = {
+                    navigateBottomBar(Screen.Favorites.route)
+                },
                 onProfileClick = {
                     navigateBottomBar(Screen.Profile.route)
                 }
@@ -120,6 +142,9 @@ fun AppNavigation() {
                 },
                 onFavoritesClick = {
                     navigateBottomBar(Screen.Favorites.route)
+                },
+                onMessagesClick = {
+                    navigateBottomBar(Screen.Messages.route)
                 },
                 onHandymanSetupClick = {
                     navController.navigate(Screen.HandymanSetup.route)
@@ -156,6 +181,29 @@ fun AppNavigation() {
 
             HandymanDetailsScreen(
                 handymanId = handymanId,
+                onBackClick = {
+                    navController.popBackStack()
+                },
+                onMessageClick = { otherUserId ->
+                    navController.navigate(
+                        Screen.ChatConversation.createRoute(otherUserId)
+                    )
+                }
+            )
+        }
+
+        composable(
+            route = Screen.ChatConversation.route,
+            arguments = listOf(
+                navArgument("otherUserId") {
+                    type = NavType.StringType
+                }
+            )
+        ) { backStackEntry ->
+            val otherUserId = backStackEntry.arguments?.getString("otherUserId") ?: ""
+
+            ChatConversationScreen(
+                otherUserId = otherUserId,
                 onBackClick = {
                     navController.popBackStack()
                 }

@@ -2,25 +2,24 @@ package com.example.najdimajstor.ui.components
 
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
-import com.example.najdimajstor.ui.theme.NajdiGold
-import com.example.najdimajstor.ui.theme.NajdiSurfaceDark
-import com.example.najdimajstor.ui.theme.NajdiSurfaceLight
 import androidx.compose.ui.unit.dp
+import com.example.najdimajstor.ui.theme.NajdiGold
 
 enum class BottomNavItem {
     HOME,
     FAVORITES,
+    MESSAGES,
     PROFILE
 }
 
@@ -29,6 +28,7 @@ fun MainBottomBar(
     selectedItem: BottomNavItem,
     onHomeClick: () -> Unit,
     onFavoritesClick: () -> Unit,
+    onMessagesClick: () -> Unit,
     onProfileClick: () -> Unit
 ) {
     val isDarkTheme = isSystemInDarkTheme()
@@ -84,6 +84,21 @@ fun MainBottomBar(
             },
             label = {
                 Text(text = "Зачувани")
+            }
+        )
+
+        NavigationBarItem(
+            selected = selectedItem == BottomNavItem.MESSAGES,
+            onClick = onMessagesClick,
+            colors = itemColors,
+            icon = {
+                Icon(
+                    imageVector = Icons.Default.Email,
+                    contentDescription = null
+                )
+            },
+            label = {
+                Text(text = "Пораки")
             }
         )
 

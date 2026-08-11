@@ -60,6 +60,7 @@ import com.google.firebase.firestore.FirebaseFirestore
 fun ProfileScreen(
     onHomeClick: () -> Unit,
     onFavoritesClick: () -> Unit,
+    onMessagesClick: () -> Unit,
     onHandymanSetupClick: () -> Unit,
     onLogoutClick: () -> Unit
 ) {
@@ -118,6 +119,7 @@ fun ProfileScreen(
                 selectedItem = BottomNavItem.PROFILE,
                 onHomeClick = onHomeClick,
                 onFavoritesClick = onFavoritesClick,
+                onMessagesClick = onMessagesClick,
                 onProfileClick = { }
             )
         }

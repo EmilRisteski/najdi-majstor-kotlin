@@ -37,9 +37,6 @@ import com.example.najdimajstor.ui.components.HandymanCard
 import com.example.najdimajstor.ui.components.HomeHeader
 import com.example.najdimajstor.ui.components.MainBottomBar
 import com.example.najdimajstor.ui.theme.NajdiGold
-import androidx.compose.foundation.lazy.LazyListState
-import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.snapshotFlow
@@ -50,6 +47,7 @@ import kotlinx.coroutines.flow.first
 fun HomeScreen(
     onHandymanClick: (String) -> Unit,
     onFavoritesClick: () -> Unit,
+    onMessagesClick: () -> Unit,
     onProfileClick: () -> Unit
 ) {
     val handymanRepository = remember { HandymanRepository() }
@@ -220,6 +218,7 @@ fun HomeScreen(
                 selectedItem = BottomNavItem.HOME,
                 onHomeClick = { },
                 onFavoritesClick = onFavoritesClick,
+                onMessagesClick = onMessagesClick,
                 onProfileClick = onProfileClick
             )
         }

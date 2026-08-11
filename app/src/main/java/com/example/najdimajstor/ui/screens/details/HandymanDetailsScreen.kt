@@ -54,7 +54,8 @@ import com.example.najdimajstor.ui.theme.NajdiTextLight
 @Composable
 fun HandymanDetailsScreen(
     handymanId: String,
-    onBackClick: () -> Unit
+    onBackClick: () -> Unit,
+    onMessageClick: (String) -> Unit
 ) {
     val handymanRepository = remember { HandymanRepository() }
     val favoriteRepository = remember { FavoriteRepository() }
@@ -131,6 +132,9 @@ fun HandymanDetailsScreen(
                         }
                     }
                 },
+                onMessageClick = {
+                    onMessageClick(currentHandyman.id)
+                },
                 onBackClick = onBackClick
             )
         }
@@ -176,6 +180,7 @@ private fun HandymanDetailsContent(
     handyman: Handyman,
     favoriteErrorMessage: String?,
     onFavoriteClick: () -> Unit,
+    onMessageClick: () -> Unit,
     onBackClick: () -> Unit
 ) {
     val professionInitial = handyman.profession
@@ -435,15 +440,7 @@ private fun HandymanDetailsContent(
 
                 PrimaryButton(
                     text = "Испрати порака",
-                    onClick = { }
-                )
-
-                Text(
-                    text = "Чатот ќе биде достапен откако ќе ја поврземе апликацијата со Firebase.",
-                    modifier = Modifier.fillMaxWidth(),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.55f),
-                    textAlign = TextAlign.Center
+                    onClick = onMessageClick
                 )
 
                 Spacer(modifier = Modifier.height(8.dp))
