@@ -129,6 +129,11 @@ fun AppNavigation() {
                 onFavoritesClick = {
                     navigateBottomBar(Screen.Favorites.route)
                 },
+                onChatClick = { otherUserId ->
+                    navController.navigate(
+                        Screen.ChatConversation.createRoute(otherUserId)
+                    )
+                },
                 onProfileClick = {
                     navigateBottomBar(Screen.Profile.route)
                 }

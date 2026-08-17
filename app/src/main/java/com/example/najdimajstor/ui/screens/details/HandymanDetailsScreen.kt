@@ -50,6 +50,7 @@ import com.example.najdimajstor.ui.theme.NajdiMutedText
 import com.example.najdimajstor.ui.theme.NajdiNavy
 import com.example.najdimajstor.ui.theme.NajdiSuccess
 import com.example.najdimajstor.ui.theme.NajdiTextLight
+import com.google.firebase.auth.FirebaseAuth
 
 @Composable
 fun HandymanDetailsScreen(
@@ -59,6 +60,9 @@ fun HandymanDetailsScreen(
 ) {
     val handymanRepository = remember { HandymanRepository() }
     val favoriteRepository = remember { FavoriteRepository() }
+    val currentUserId = remember {
+        FirebaseAuth.getInstance().currentUser?.uid.orEmpty()
+    }
 
     var handyman by remember { mutableStateOf<Handyman?>(null) }
     var isFavorite by remember { mutableStateOf(false) }
@@ -112,9 +116,17 @@ fun HandymanDetailsScreen(
         }
 
         else -> {
+            val isOwnProfile =
+                currentUserId.isNotBlank() &&
+                        (
+                                currentHandyman.id == currentUserId ||
+                                        currentHandyman.ownerId == currentUserId
+                                )
+
             HandymanDetailsContent(
                 handyman = currentHandyman.copy(isFavorite = isFavorite),
                 favoriteErrorMessage = favoriteErrorMessage,
+                showMessageButton = !isOwnProfile,
                 onFavoriteClick = {
                     val previousFavoriteState = isFavorite
 
@@ -179,6 +191,7 @@ private fun DetailsMessageState(
 private fun HandymanDetailsContent(
     handyman: Handyman,
     favoriteErrorMessage: String?,
+    showMessageButton: Boolean,
     onFavoriteClick: () -> Unit,
     onMessageClick: () -> Unit,
     onBackClick: () -> Unit
@@ -438,10 +451,12 @@ private fun HandymanDetailsContent(
                     }
                 }
 
-                PrimaryButton(
-                    text = "Испрати порака",
-                    onClick = onMessageClick
-                )
+                if (showMessageButton) {
+                    PrimaryButton(
+                        text = "Испрати порака",
+                        onClick = onMessageClick
+                    )
+                }
 
                 Spacer(modifier = Modifier.height(8.dp))
             }

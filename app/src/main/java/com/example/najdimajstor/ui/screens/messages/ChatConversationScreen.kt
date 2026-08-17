@@ -4,90 +4,458 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Email
+import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.platform.SoftwareKeyboardController
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.example.najdimajstor.data.model.ChatMessage
+import com.example.najdimajstor.data.repository.ChatRepository
 import com.example.najdimajstor.ui.theme.NajdiGold
+import com.example.najdimajstor.ui.theme.NajdiMutedText
+import com.example.najdimajstor.ui.theme.NajdiNavy
 
+@OptIn(ExperimentalComposeUiApi::class)
 @Composable
 fun ChatConversationScreen(
     otherUserId: String,
     onBackClick: () -> Unit
 ) {
+    val chatRepository = remember { ChatRepository() }
+    val currentUserId = remember {
+        chatRepository.getCurrentUserId().orEmpty()
+    }
+
+    var chatId by remember { mutableStateOf<String?>(null) }
+    var otherUserName by remember { mutableStateOf("Корисник") }
+    var messages by remember { mutableStateOf<List<ChatMessage>>(emptyList()) }
+
+    var newMessage by remember { mutableStateOf("") }
+    var isLoading by remember { mutableStateOf(true) }
+    var isSending by remember { mutableStateOf(false) }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
+
+    val listState = rememberLazyListState()
+    val messageFocusRequester = remember { FocusRequester() }
+    val keyboardController = LocalSoftwareKeyboardController.current
+
+    fun keepKeyboardOpen() {
+        messageFocusRequester.requestFocus()
+        keyboardController?.show()
+    }
+
+    fun sendCurrentMessage() {
+        val currentChatId = chatId
+        val messageText = newMessage.trim()
+
+        when {
+            currentChatId.isNullOrBlank() -> {
+                errorMessage = "Разговорот не е подготвен."
+                return
+            }
+
+            messageText.isBlank() -> {
+                keepKeyboardOpen()
+                return
+            }
+
+            isSending -> {
+                keepKeyboardOpen()
+                return
+            }
+
+            else -> {
+                isSending = true
+                errorMessage = null
+
+                chatRepository.sendMessage(
+                    chatId = currentChatId,
+                    text = messageText
+                ) { success, error ->
+                    isSending = false
+
+                    if (success) {
+                        if (newMessage.trim() == messageText) {
+                            newMessage = ""
+                        }
+
+                        errorMessage = null
+                        keepKeyboardOpen()
+                    } else {
+                        errorMessage = error ?: "Пораката не беше испратена."
+                        keepKeyboardOpen()
+                    }
+                }
+            }
+        }
+    }
+
+    LaunchedEffect(otherUserId) {
+        isLoading = true
+        errorMessage = null
+
+        chatRepository.getOtherUserDisplayName(otherUserId) { name ->
+            otherUserName = name
+        }
+
+        chatRepository.getOrCreateChat(otherUserId) { resultChatId, error ->
+            chatId = resultChatId
+            errorMessage = error
+            isLoading = false
+        }
+    }
+
+    DisposableEffect(chatId, otherUserId) {
+        val currentChatId = chatId
+
+        val registration = if (!currentChatId.isNullOrBlank()) {
+            chatRepository.listenToChat(currentChatId) { chat, error ->
+                val nameFromChat = chat
+                    ?.participantNames
+                    ?.get(otherUserId)
+                    .orEmpty()
+
+                if (nameFromChat.isNotBlank() && nameFromChat != "Корисник") {
+                    otherUserName = nameFromChat
+                }
+
+                if (error != null) {
+                    errorMessage = error
+                }
+            }
+        } else {
+            null
+        }
+
+        onDispose {
+            registration?.remove()
+        }
+    }
+
+    DisposableEffect(chatId) {
+        val currentChatId = chatId
+
+        val registration = if (!currentChatId.isNullOrBlank()) {
+            chatRepository.listenToMessages(currentChatId) { result, error ->
+                messages = result
+
+                if (error != null) {
+                    errorMessage = error
+                }
+            }
+        } else {
+            null
+        }
+
+        onDispose {
+            registration?.remove()
+        }
+    }
+
+    LaunchedEffect(messages.size) {
+        if (messages.isNotEmpty()) {
+            listState.animateScrollToItem(messages.lastIndex)
+        }
+    }
+
     Scaffold { innerPadding ->
-        Box(
+        Column(
             modifier = Modifier
                 .fillMaxSize()
                 .background(MaterialTheme.colorScheme.background)
                 .padding(innerPadding)
+                .imePadding()
+        ) {
+            ChatHeader(
+                title = otherUserName,
+                onBackClick = onBackClick
+            )
+
+            if (errorMessage != null) {
+                Text(
+                    text = errorMessage.orEmpty(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp, vertical = 8.dp),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.error,
+                    textAlign = TextAlign.Center
+                )
+            }
+
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth()
+            ) {
+                when {
+                    isLoading -> {
+                        ChatCenteredMessage(
+                            text = "Се отвора разговорот..."
+                        )
+                    }
+
+                    messages.isEmpty() && errorMessage == null -> {
+                        ChatCenteredMessage(
+                            text = "Нема пораки. Испрати ја првата порака."
+                        )
+                    }
+
+                    else -> {
+                        LazyColumn(
+                            state = listState,
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(horizontal = 16.dp),
+                            verticalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            item {
+                                Spacer(modifier = Modifier.height(8.dp))
+                            }
+
+                            items(
+                                items = messages,
+                                key = { message -> message.id }
+                            ) { message ->
+                                MessageBubble(
+                                    message = message,
+                                    isMine = message.senderId == currentUserId
+                                )
+                            }
+
+                            item {
+                                Spacer(modifier = Modifier.height(8.dp))
+                            }
+                        }
+                    }
+                }
+            }
+
+            ChatInputBar(
+                value = newMessage,
+                onValueChange = { newMessage = it },
+                messageFocusRequester = messageFocusRequester,
+                keyboardController = keyboardController,
+                isSending = isSending,
+                enabled = chatId != null && !isLoading,
+                onSendClick = {
+                    sendCurrentMessage()
+                }
+            )
+        }
+    }
+}
+
+@Composable
+private fun ChatHeader(
+    title: String,
+    onBackClick: () -> Unit
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = MaterialTheme.colorScheme.surface,
+        tonalElevation = 0.dp,
+        shadowElevation = 0.dp
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 8.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
             IconButton(
-                onClick = onBackClick,
-                modifier = Modifier
-                    .align(Alignment.TopStart)
-                    .padding(16.dp)
+                onClick = onBackClick
             ) {
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                     contentDescription = "Назад",
-                    tint = MaterialTheme.colorScheme.onBackground
+                    tint = MaterialTheme.colorScheme.onSurface
                 )
             }
 
-            Column(
+            Column {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+
+                Text(
+                    text = "Пораки",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = NajdiMutedText
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ChatCenteredMessage(
+    text: String
+) {
+    Box(
+        modifier = Modifier.fillMaxSize(),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = text,
+            modifier = Modifier.padding(horizontal = 28.dp),
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.65f),
+            textAlign = TextAlign.Center
+        )
+    }
+}
+
+@Composable
+private fun MessageBubble(
+    message: ChatMessage,
+    isMine: Boolean
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = if (isMine) {
+            Arrangement.End
+        } else {
+            Arrangement.Start
+        }
+    ) {
+        Card(
+            modifier = Modifier.widthIn(max = 280.dp),
+            shape = RoundedCornerShape(
+                topStart = 18.dp,
+                topEnd = 18.dp,
+                bottomStart = if (isMine) 18.dp else 4.dp,
+                bottomEnd = if (isMine) 4.dp else 18.dp
+            ),
+            colors = CardDefaults.cardColors(
+                containerColor = if (isMine) {
+                    NajdiGold
+                } else {
+                    MaterialTheme.colorScheme.surface
+                }
+            ),
+            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        ) {
+            Text(
+                text = message.text,
+                modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                style = MaterialTheme.typography.bodyMedium,
+                color = if (isMine) {
+                    NajdiNavy
+                } else {
+                    MaterialTheme.colorScheme.onSurface
+                }
+            )
+        }
+    }
+}
+
+@OptIn(ExperimentalComposeUiApi::class)
+@Composable
+private fun ChatInputBar(
+    value: String,
+    onValueChange: (String) -> Unit,
+    messageFocusRequester: FocusRequester,
+    keyboardController: SoftwareKeyboardController?,
+    isSending: Boolean,
+    enabled: Boolean,
+    onSendClick: () -> Unit
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = MaterialTheme.colorScheme.surface,
+        tonalElevation = 0.dp,
+        shadowElevation = 0.dp
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 14.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            OutlinedTextField(
+                value = value,
+                onValueChange = onValueChange,
                 modifier = Modifier
-                    .align(Alignment.Center)
-                    .padding(horizontal = 24.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center
+                    .weight(1f)
+                    .focusRequester(messageFocusRequester),
+                enabled = enabled,
+                placeholder = {
+                    Text(text = "Напиши порака...")
+                },
+                singleLine = false,
+                maxLines = 4,
+                keyboardOptions = KeyboardOptions(
+                    imeAction = ImeAction.Send
+                ),
+                keyboardActions = KeyboardActions(
+                    onSend = {
+                        onSendClick()
+                        messageFocusRequester.requestFocus()
+                        keyboardController?.show()
+                    }
+                )
+            )
+
+            IconButton(
+                onClick = {
+                    onSendClick()
+                    messageFocusRequester.requestFocus()
+                    keyboardController?.show()
+                },
+                enabled = enabled && !isSending && value.isNotBlank()
             ) {
                 Icon(
-                    imageVector = Icons.Default.Email,
-                    contentDescription = null,
-                    tint = NajdiGold
-                )
-
-                Spacer(modifier = Modifier.height(12.dp))
-
-                Text(
-                    text = "Разговор",
-                    style = MaterialTheme.typography.headlineMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onBackground,
-                    textAlign = TextAlign.Center
-                )
-
-                Spacer(modifier = Modifier.height(6.dp))
-
-                Text(
-                    text = "Овде ќе биде разговорот со избраниот мајстор.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.65f),
-                    textAlign = TextAlign.Center
-                )
-
-                Spacer(modifier = Modifier.height(8.dp))
-
-                Text(
-                    text = "ID: $otherUserId",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.45f),
-                    textAlign = TextAlign.Center
+                    imageVector = Icons.AutoMirrored.Filled.Send,
+                    contentDescription = "Испрати",
+                    tint = if (enabled && !isSending && value.isNotBlank()) {
+                        NajdiGold
+                    } else {
+                        NajdiMutedText
+                    }
                 )
             }
         }
