@@ -192,6 +192,7 @@ class ChatRepository(
 
         val chatUpdateData = mapOf(
             "lastMessage" to trimmedText,
+            "lastMessageSenderId" to currentUserId,
             "lastMessageAt" to FieldValue.serverTimestamp(),
             "updatedAt" to FieldValue.serverTimestamp()
         )
@@ -274,6 +275,7 @@ class ChatRepository(
                                 otherUserId to otherUserName
                             ),
                             "lastMessage" to "",
+                            "lastMessageSenderId" to "",
                             "createdAt" to FieldValue.serverTimestamp(),
                             "updatedAt" to FieldValue.serverTimestamp()
                         )
@@ -338,6 +340,7 @@ class ChatRepository(
                 ?.toMap()
                 ?: emptyMap(),
             lastMessage = getString("lastMessage").orEmpty(),
+            lastMessageSenderId = getString("lastMessageSenderId").orEmpty(),
             lastMessageAt = getTimestamp("lastMessageAt"),
             updatedAt = getTimestamp("updatedAt")
         )

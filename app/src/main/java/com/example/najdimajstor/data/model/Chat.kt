@@ -7,6 +7,7 @@ data class Chat(
     val participantIds: List<String> = emptyList(),
     val participantNames: Map<String, String> = emptyMap(),
     val lastMessage: String = "",
+    val lastMessageSenderId: String = "",
     val lastMessageAt: Timestamp? = null,
     val updatedAt: Timestamp? = null
 )

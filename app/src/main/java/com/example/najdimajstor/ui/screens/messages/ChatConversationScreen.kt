@@ -42,6 +42,7 @@ import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.SoftwareKeyboardController
 import androidx.compose.ui.text.font.FontWeight
@@ -50,6 +51,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.example.najdimajstor.data.model.ChatMessage
 import com.example.najdimajstor.data.repository.ChatRepository
+import com.example.najdimajstor.notifications.LocalChatNotificationRepository
 import com.example.najdimajstor.ui.theme.NajdiGold
 import com.example.najdimajstor.ui.theme.NajdiMutedText
 import com.example.najdimajstor.ui.theme.NajdiNavy
@@ -60,6 +62,7 @@ fun ChatConversationScreen(
     otherUserId: String,
     onBackClick: () -> Unit
 ) {
+    val context = LocalContext.current
     val chatRepository = remember { ChatRepository() }
     val currentUserId = remember {
         chatRepository.getCurrentUserId().orEmpty()
@@ -141,6 +144,23 @@ fun ChatConversationScreen(
             chatId = resultChatId
             errorMessage = error
             isLoading = false
+        }
+    }
+
+    DisposableEffect(chatId) {
+        val currentChatId = chatId
+
+        if (!currentChatId.isNullOrBlank()) {
+            LocalChatNotificationRepository.markChatAsOpen(
+                context = context,
+                chatId = currentChatId
+            )
+        }
+
+        onDispose {
+            if (!currentChatId.isNullOrBlank()) {
+                LocalChatNotificationRepository.markChatAsClosed(currentChatId)
+            }
         }
     }
 
