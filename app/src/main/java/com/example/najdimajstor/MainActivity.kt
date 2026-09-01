@@ -2,6 +2,9 @@ package com.example.najdimajstor
 
 import android.Manifest
 import android.content.pm.PackageManager
+import android.content.res.Configuration
+import android.graphics.Color
+import android.graphics.drawable.ColorDrawable
 import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -32,6 +35,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
+        applyWindowBackground()
         requestNotificationPermissionIfNeeded()
         auth.addAuthStateListener(authStateListener)
 
@@ -45,6 +49,20 @@ class MainActivity : ComponentActivity() {
     override fun onDestroy() {
         auth.removeAuthStateListener(authStateListener)
         super.onDestroy()
+    }
+
+    private fun applyWindowBackground() {
+        val isDarkMode =
+            resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK ==
+                    Configuration.UI_MODE_NIGHT_YES
+
+        val backgroundColor = if (isDarkMode) {
+            Color.parseColor("#0B1220")
+        } else {
+            Color.parseColor("#F8FAFC")
+        }
+
+        window.setBackgroundDrawable(ColorDrawable(backgroundColor))
     }
 
     private fun requestNotificationPermissionIfNeeded() {

@@ -72,7 +72,7 @@ fun ProfileScreen(
     var fullName by remember { mutableStateOf("Корисник") }
     var email by remember { mutableStateOf("") }
     var phone by remember { mutableStateOf("") }
-    var role by remember { mutableStateOf("CUSTOMER") }
+    var role by remember { mutableStateOf<String?>(null) }
 
     var handymanRating by remember { mutableStateOf(0.0) }
     var handymanReviewCount by remember { mutableStateOf(0) }
@@ -136,16 +136,17 @@ fun ProfileScreen(
             }
             .addOnFailureListener {
                 email = currentUser.email.orEmpty()
+                role = "CUSTOMER"
                 isLoading = false
             }
     }
 
     val isHandyman = role == "HANDYMAN"
 
-    val roleLabel = if (isHandyman) {
-        "Мајстор"
-    } else {
-        "Клиент"
+    val roleLabel = when (role) {
+        "HANDYMAN" -> "Мајстор"
+        "CUSTOMER" -> "Клиент"
+        else -> ""
     }
 
     if (showEditProfileSheet) {
@@ -192,8 +193,33 @@ fun ProfileScreen(
                     .addOnSuccessListener {
                         fullName = trimmedName
                         phone = trimmedPhone
-                        isSavingProfile = false
-                        showEditProfileSheet = false
+
+                        updateReviewerNameInExistingReviews(
+                            firestore = firestore,
+                            userId = currentUserId,
+                            reviewerName = trimmedName,
+                            onFinished = {
+                                updateDisplayNameInExistingChats(
+                                    firestore = firestore,
+                                    userId = currentUserId,
+                                    displayName = trimmedName,
+                                    onFinished = {
+                                        isSavingProfile = false
+                                        showEditProfileSheet = false
+                                    },
+                                    onError = {
+                                        isSavingProfile = false
+                                        editProfileErrorMessage =
+                                            "Профилот е ажуриран, но старите пораки не се освежија. Обиди се повторно."
+                                    }
+                                )
+                            },
+                            onError = {
+                                isSavingProfile = false
+                                editProfileErrorMessage =
+                                    "Профилот е ажуриран, но старите рецензии не се освежија. Обиди се повторно."
+                            }
+                        )
                     }
                     .addOnFailureListener { exception ->
                         isSavingProfile = false
@@ -252,46 +278,53 @@ fun ProfileScreen(
 
             item {
                 ProfileHeaderCard(
-                    fullName = if (isLoading) "Се вчитува..." else fullName,
-                    roleLabel = roleLabel
+                    fullName = fullName,
+                    roleLabel = roleLabel,
+                    isLoading = isLoading
                 )
             }
 
-            item {
-                ProfileStatsRow(
-                    isHandyman = isHandyman,
-                    savedCount = savedCount,
-                    rating = handymanRating,
-                    reviewCount = handymanReviewCount
-                )
-            }
+            if (isLoading) {
+                item {
+                    ProfileLoadingCard()
+                }
+            } else {
+                item {
+                    ProfileStatsRow(
+                        isHandyman = isHandyman,
+                        savedCount = savedCount,
+                        rating = handymanRating,
+                        reviewCount = handymanReviewCount
+                    )
+                }
 
-            item {
-                PersonalInfoCard(
-                    email = if (email.isBlank()) "Не е достапна" else email,
-                    phone = if (phone.isBlank()) "Не е внесен" else phone
-                )
-            }
+                item {
+                    PersonalInfoCard(
+                        email = if (email.isBlank()) "Не е достапна" else email,
+                        phone = if (phone.isBlank()) "Не е внесен" else phone
+                    )
+                }
 
-            item {
-                ProfileActionsCard(
-                    isHandyman = isHandyman,
-                    rating = handymanRating,
-                    reviewCount = handymanReviewCount,
-                    onEditProfileClick = {
-                        if (isHandyman) {
-                            onHandymanSetupClick()
-                        } else {
-                            editProfileErrorMessage = null
-                            showEditProfileSheet = true
-                        }
-                    },
-                    onFavoritesClick = onFavoritesClick,
-                    onMyRatingsClick = {
-                        showRatingsSheet = true
-                    },
-                    onLogoutClick = onLogoutClick
-                )
+                item {
+                    ProfileActionsCard(
+                        isHandyman = isHandyman,
+                        rating = handymanRating,
+                        reviewCount = handymanReviewCount,
+                        onEditProfileClick = {
+                            if (isHandyman) {
+                                onHandymanSetupClick()
+                            } else {
+                                editProfileErrorMessage = null
+                                showEditProfileSheet = true
+                            }
+                        },
+                        onFavoritesClick = onFavoritesClick,
+                        onMyRatingsClick = {
+                            showRatingsSheet = true
+                        },
+                        onLogoutClick = onLogoutClick
+                    )
+                }
             }
 
             item {
@@ -304,9 +337,14 @@ fun ProfileScreen(
 @Composable
 private fun ProfileHeaderCard(
     fullName: String,
-    roleLabel: String
+    roleLabel: String,
+    isLoading: Boolean
 ) {
-    val initials = getInitials(fullName)
+    val initials = if (isLoading) {
+        "…"
+    } else {
+        getInitials(fullName)
+    }
 
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -342,20 +380,41 @@ private fun ProfileHeaderCard(
             Spacer(modifier = Modifier.height(16.dp))
 
             Text(
-                text = fullName,
+                text = if (isLoading) "Се вчитува..." else fullName,
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold,
                 color = NajdiTextLight
             )
 
-            Spacer(modifier = Modifier.height(4.dp))
+            if (!isLoading && roleLabel.isNotBlank()) {
+                Spacer(modifier = Modifier.height(4.dp))
 
-            Text(
-                text = roleLabel,
-                style = MaterialTheme.typography.bodyMedium,
-                color = NajdiTextLight.copy(alpha = 0.7f)
-            )
+                Text(
+                    text = roleLabel,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = NajdiTextLight.copy(alpha = 0.7f)
+                )
+            }
         }
+    }
+}
+
+@Composable
+private fun ProfileLoadingCard() {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(24.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 3.dp)
+    ) {
+        Text(
+            text = "Се вчитуваат податоци...",
+            modifier = Modifier.padding(18.dp),
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+        )
     }
 }
 
@@ -799,6 +858,127 @@ private fun MyRatingsSheet(
             )
         }
     }
+}
+
+private fun updateReviewerNameInExistingReviews(
+    firestore: FirebaseFirestore,
+    userId: String,
+    reviewerName: String,
+    onFinished: () -> Unit,
+    onError: () -> Unit
+) {
+    firestore
+        .collection("handymen")
+        .get()
+        .addOnSuccessListener { handymenSnapshot ->
+            if (handymenSnapshot.isEmpty) {
+                onFinished()
+                return@addOnSuccessListener
+            }
+
+            val reviewReferences = handymenSnapshot.documents.map { handymanDocument ->
+                handymanDocument.reference
+                    .collection("reviews")
+                    .document(userId)
+            }
+
+            val existingReviewReferences = mutableListOf<com.google.firebase.firestore.DocumentReference>()
+
+            var completedChecks = 0
+            var hasFailed = false
+
+            reviewReferences.forEach { reviewReference ->
+                reviewReference
+                    .get()
+                    .addOnSuccessListener { reviewDocument ->
+                        if (hasFailed) {
+                            return@addOnSuccessListener
+                        }
+
+                        if (reviewDocument.exists()) {
+                            existingReviewReferences.add(reviewReference)
+                        }
+
+                        completedChecks++
+
+                        if (completedChecks == reviewReferences.size) {
+                            if (existingReviewReferences.isEmpty()) {
+                                onFinished()
+                                return@addOnSuccessListener
+                            }
+
+                            val batch = firestore.batch()
+
+                            existingReviewReferences.forEach { existingReviewReference ->
+                                batch.update(
+                                    existingReviewReference,
+                                    mapOf(
+                                        "reviewerName" to reviewerName,
+                                        "updatedAt" to FieldValue.serverTimestamp()
+                                    )
+                                )
+                            }
+
+                            batch.commit()
+                                .addOnSuccessListener {
+                                    onFinished()
+                                }
+                                .addOnFailureListener {
+                                    onError()
+                                }
+                        }
+                    }
+                    .addOnFailureListener {
+                        if (!hasFailed) {
+                            hasFailed = true
+                            onError()
+                        }
+                    }
+            }
+        }
+        .addOnFailureListener {
+            onError()
+        }
+}
+
+private fun updateDisplayNameInExistingChats(
+    firestore: FirebaseFirestore,
+    userId: String,
+    displayName: String,
+    onFinished: () -> Unit,
+    onError: () -> Unit
+) {
+    firestore
+        .collection("chats")
+        .whereArrayContains("participantIds", userId)
+        .get()
+        .addOnSuccessListener { snapshot ->
+            if (snapshot.isEmpty) {
+                onFinished()
+                return@addOnSuccessListener
+            }
+
+            val batch = firestore.batch()
+
+            snapshot.documents.forEach { document ->
+                batch.update(
+                    document.reference,
+                    "participantNames.$userId",
+                    displayName
+                )
+            }
+
+            batch.commit()
+                .addOnSuccessListener {
+                    onFinished()
+                }
+                .addOnFailureListener {
+                    onError()
+                }
+        }
+        .addOnFailureListener {
+            onError()
+        }
 }
 
 private fun getInitials(

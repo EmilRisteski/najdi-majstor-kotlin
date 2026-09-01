@@ -7,6 +7,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.SideEffect
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
@@ -44,16 +45,24 @@ fun NajdiMajstorTheme(
     val view = LocalView.current
 
     if (!view.isInEditMode) {
-        val window = (view.context as Activity).window
-        window.statusBarColor = colorScheme.background.toArgb()
-        window.navigationBarColor = colorScheme.background.toArgb()
+        SideEffect {
+            val activity = view.context as? Activity ?: return@SideEffect
+            val window = activity.window
+            val backgroundColor = colorScheme.background.toArgb()
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = !darkTheme
-        }
+            window.statusBarColor = backgroundColor
+            window.navigationBarColor = backgroundColor
+            window.decorView.setBackgroundColor(backgroundColor)
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            WindowCompat.getInsetsController(window, view).isAppearanceLightNavigationBars = !darkTheme
+            val insetsController = WindowCompat.getInsetsController(window, view)
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                insetsController.isAppearanceLightStatusBars = !darkTheme
+            }
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                insetsController.isAppearanceLightNavigationBars = !darkTheme
+            }
         }
     }
 

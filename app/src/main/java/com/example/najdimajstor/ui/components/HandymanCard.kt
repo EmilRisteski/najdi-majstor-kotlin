@@ -2,7 +2,6 @@ package com.example.najdimajstor.ui.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -27,13 +26,13 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.najdimajstor.data.model.Handyman
 import com.example.najdimajstor.ui.theme.NajdiGold
 import com.example.najdimajstor.ui.theme.NajdiMutedText
 import com.example.najdimajstor.ui.theme.NajdiSuccess
+import java.util.Locale
 
 @Composable
 fun HandymanCard(
@@ -42,18 +41,9 @@ fun HandymanCard(
     modifier: Modifier = Modifier,
     onFavoriteClick: () -> Unit = {}
 ) {
-    val isDarkTheme = isSystemInDarkTheme()
-
-    val iconBoxColor = if (isDarkTheme) {
-        Color(0xFF1E293B)
-    } else {
-        Color(0xFFF1F5F9)
-    }
-
-    val professionInitial = handyman.profession
-        .firstOrNull()
-        ?.toString()
-        ?: "?"
+    val handymanInitials = getInitials(
+        handyman.name.ifBlank { handyman.profession }
+    )
 
     Card(
         modifier = modifier
@@ -76,13 +66,13 @@ fun HandymanCard(
                     modifier = Modifier
                         .size(72.dp)
                         .background(
-                            color = iconBoxColor,
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f),
                             shape = RoundedCornerShape(20.dp)
                         ),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
-                        text = professionInitial,
+                        text = handymanInitials,
                         style = MaterialTheme.typography.headlineMedium,
                         fontWeight = FontWeight.Bold,
                         color = NajdiGold
@@ -134,7 +124,7 @@ fun HandymanCard(
                         )
 
                         Text(
-                            text = " ${handyman.rating} • ${handyman.reviewCount} оценки",
+                            text = " ${formatRating(handyman.rating)} • ${getReviewCountText(handyman.reviewCount)}",
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.72f)
                         )
@@ -209,5 +199,44 @@ fun HandymanCard(
                 )
             }
         }
+    }
+}
+
+private fun getInitials(
+    name: String
+): String {
+    val parts = name
+        .trim()
+        .split(" ")
+        .filter { it.isNotBlank() }
+
+    return when {
+        parts.size >= 2 -> {
+            "${parts[0].first()}${parts[1].first()}".uppercase()
+        }
+
+        parts.size == 1 -> {
+            parts[0].take(2).uppercase()
+        }
+
+        else -> {
+            "?"
+        }
+    }
+}
+
+private fun formatRating(
+    rating: Double
+): String {
+    return String.format(Locale.getDefault(), "%.1f", rating)
+}
+
+private fun getReviewCountText(
+    count: Int
+): String {
+    return when (count) {
+        0 -> "Нема рецензии"
+        1 -> "1 рецензија"
+        else -> "$count рецензии"
     }
 }

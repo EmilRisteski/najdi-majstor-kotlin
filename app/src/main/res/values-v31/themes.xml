@@ -8,6 +8,10 @@
         <item name="android:statusBarColor">#F8FAFC</item>
         <item name="android:navigationBarColor">#F8FAFC</item>
         <item name="android:colorAccent">#FFC107</item>
+
+        <item name="android:windowSplashScreenBackground">#F8FAFC</item>
+        <item name="android:windowSplashScreenAnimatedIcon">@drawable/splash_transparent_icon</item>
+        <item name="android:windowSplashScreenIconBackgroundColor">#00000000</item>
     </style>
 
 </resources>
