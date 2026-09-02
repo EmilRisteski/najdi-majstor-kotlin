@@ -582,7 +582,8 @@ private fun ProfileHeaderCard(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(28.dp),
         colors = CardDefaults.cardColors(
-            containerColor = NajdiNavy
+            containerColor = NajdiNavy,
+            contentColor = NajdiTextLight
         ),
         elevation = CardDefaults.cardElevation(defaultElevation = 5.dp)
     ) {

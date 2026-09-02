@@ -4,12 +4,10 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
@@ -36,12 +34,14 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.SoftwareKeyboardController
@@ -55,6 +55,8 @@ import com.example.najdimajstor.notifications.LocalChatNotificationRepository
 import com.example.najdimajstor.ui.theme.NajdiGold
 import com.example.najdimajstor.ui.theme.NajdiMutedText
 import com.example.najdimajstor.ui.theme.NajdiNavy
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 private const val DELETED_USER_NAME = "Избришан корисник"
 
@@ -81,12 +83,23 @@ fun ChatConversationScreen(
     var errorMessage by remember { mutableStateOf<String?>(null) }
 
     val listState = rememberLazyListState()
+    val coroutineScope = rememberCoroutineScope()
     val messageFocusRequester = remember { FocusRequester() }
     val keyboardController = LocalSoftwareKeyboardController.current
+
+    fun scrollToBottom() {
+        if (messages.isEmpty()) return
+
+        coroutineScope.launch {
+            delay(160)
+            listState.animateScrollToItem(messages.lastIndex)
+        }
+    }
 
     fun keepKeyboardOpen() {
         messageFocusRequester.requestFocus()
         keyboardController?.show()
+        scrollToBottom()
     }
 
     fun sendCurrentMessage() {
@@ -227,6 +240,7 @@ fun ChatConversationScreen(
 
     LaunchedEffect(messages.size) {
         if (messages.isNotEmpty()) {
+            delay(100)
             listState.animateScrollToItem(messages.lastIndex)
         }
     }
@@ -276,15 +290,16 @@ fun ChatConversationScreen(
                     else -> {
                         LazyColumn(
                             state = listState,
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .padding(horizontal = 16.dp),
-                            verticalArrangement = Arrangement.spacedBy(10.dp)
+                            modifier = Modifier.fillMaxSize(),
+                            contentPadding = PaddingValues(
+                                horizontal = 16.dp,
+                                vertical = 10.dp
+                            ),
+                            verticalArrangement = Arrangement.spacedBy(
+                                space = 10.dp,
+                                alignment = Alignment.Bottom
+                            )
                         ) {
-                            item {
-                                Spacer(modifier = Modifier.height(8.dp))
-                            }
-
                             items(
                                 items = messages,
                                 key = { message -> message.id }
@@ -294,19 +309,13 @@ fun ChatConversationScreen(
                                     isMine = message.senderId == currentUserId
                                 )
                             }
-
-                            item {
-                                Spacer(modifier = Modifier.height(8.dp))
-                            }
                         }
                     }
                 }
             }
 
             if (isOtherUserDeleted) {
-                DeletedUserNotice(
-                    modifier = Modifier.imePadding()
-                )
+                DeletedUserNotice()
             } else {
                 ChatInputBar(
                     value = newMessage,
@@ -315,7 +324,9 @@ fun ChatConversationScreen(
                     keyboardController = keyboardController,
                     isSending = isSending,
                     enabled = chatId != null && !isLoading,
-                    modifier = Modifier.imePadding(),
+                    onInputFocused = {
+                        scrollToBottom()
+                    },
                     onSendClick = {
                         sendCurrentMessage()
                     }
@@ -468,11 +479,11 @@ private fun ChatInputBar(
     keyboardController: SoftwareKeyboardController?,
     isSending: Boolean,
     enabled: Boolean,
-    modifier: Modifier = Modifier,
+    onInputFocused: () -> Unit,
     onSendClick: () -> Unit
 ) {
     Surface(
-        modifier = modifier.fillMaxWidth(),
+        modifier = Modifier.fillMaxWidth(),
         color = MaterialTheme.colorScheme.surface,
         tonalElevation = 0.dp,
         shadowElevation = 0.dp
@@ -489,7 +500,12 @@ private fun ChatInputBar(
                 onValueChange = onValueChange,
                 modifier = Modifier
                     .weight(1f)
-                    .focusRequester(messageFocusRequester),
+                    .focusRequester(messageFocusRequester)
+                    .onFocusChanged { focusState ->
+                        if (focusState.isFocused) {
+                            onInputFocused()
+                        }
+                    },
                 enabled = enabled,
                 placeholder = {
                     Text(text = "Напиши порака...")

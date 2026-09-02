@@ -9,10 +9,12 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RangeSlider
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -21,9 +23,14 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.example.najdimajstor.ui.theme.NajdiGold
+import com.example.najdimajstor.ui.theme.NajdiMutedText
+import kotlin.math.abs
 import kotlin.math.roundToInt
+
+private val priceSteps = (100..2000 step 100).toList() + (2500..5000 step 500).toList()
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -31,10 +38,12 @@ fun FilterBottomSheet(
     cities: List<String>,
     selectedCity: String?,
     onCitySelected: (String?) -> Unit,
-    priceRange: ClosedFloatingPointRange<Float>,
-    onPriceRangeChange: (ClosedFloatingPointRange<Float>) -> Unit,
-    minimumRating: Float,
-    onMinimumRatingChange: (Float) -> Unit,
+    priceFrom: String,
+    onPriceFromChange: (String) -> Unit,
+    priceTo: String,
+    onPriceToChange: (String) -> Unit,
+    ratingFilter: String,
+    onRatingFilterChange: (String) -> Unit,
     availableOnly: Boolean,
     onAvailableOnlyChange: (Boolean) -> Unit,
     includeNegotiable: Boolean,
@@ -42,8 +51,36 @@ fun FilterBottomSheet(
     onClearFilters: () -> Unit,
     onDismiss: () -> Unit
 ) {
+    val priceFromNumber = priceFrom.toIntOrNull()
+    val priceToNumber = priceTo.toIntOrNull()
+
+    val hasInvalidPriceRange =
+        priceFromNumber != null &&
+                priceToNumber != null &&
+                priceToNumber < priceFromNumber
+
+    val fromIndex = priceFromNumber
+        ?.let { value -> closestPriceStepIndex(value) }
+        ?: 0
+
+    val toIndex = priceToNumber
+        ?.let { value -> closestPriceStepIndex(value) }
+        ?: priceSteps.lastIndex
+
+    val sliderRange = fromIndex.toFloat()..toIndex.toFloat()
+
+    val ratingOptions = listOf(
+        "all" to "Сите",
+        "five" to "★ 5",
+        "four_plus" to "★ 4+",
+        "three_plus" to "★ 3+",
+        "below_three" to "Под ★3",
+        "unrated" to "Без оцена"
+    )
+
     ModalBottomSheet(
-        onDismissRequest = onDismiss
+        onDismissRequest = onDismiss,
+        containerColor = MaterialTheme.colorScheme.background
     ) {
         Column(
             modifier = Modifier
@@ -60,13 +97,15 @@ fun FilterBottomSheet(
                 Text(
                     text = "Филтри",
                     style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onBackground
                 )
 
                 TextButton(onClick = onClearFilters) {
                     Text(
                         text = "Исчисти",
-                        color = NajdiGold
+                        color = NajdiGold,
+                        fontWeight = FontWeight.Bold
                     )
                 }
             }
@@ -75,7 +114,8 @@ fun FilterBottomSheet(
                 Text(
                     text = "Град",
                     style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onBackground
                 )
 
                 Spacer(modifier = Modifier.height(8.dp))
@@ -103,33 +143,109 @@ fun FilterBottomSheet(
 
             Column {
                 Text(
-                    text = "Цена: ${priceRange.start.roundToInt()} - ${
-                        if (priceRange.endInclusive >= 5000f) "5000+" else priceRange.endInclusive.roundToInt()
-                    } ден.",
+                    text = "Цена: ${priceSteps[fromIndex]} - ${formatPriceStep(priceSteps[toIndex])} ден.",
                     style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onBackground
                 )
 
+                Spacer(modifier = Modifier.height(8.dp))
+
                 RangeSlider(
-                    value = priceRange,
-                    onValueChange = onPriceRangeChange,
-                    valueRange = 150f..5000f
+                    value = sliderRange,
+                    onValueChange = { range ->
+                        val newFromIndex = range.start
+                            .roundToInt()
+                            .coerceIn(0, priceSteps.lastIndex)
+
+                        val newToIndex = range.endInclusive
+                            .roundToInt()
+                            .coerceIn(newFromIndex, priceSteps.lastIndex)
+
+                        val newFrom = priceSteps[newFromIndex]
+                        val newTo = priceSteps[newToIndex]
+
+                        if (newFromIndex == 0 && newToIndex == priceSteps.lastIndex) {
+                            onPriceFromChange("")
+                            onPriceToChange("")
+                        } else {
+                            onPriceFromChange(newFrom.toString())
+                            onPriceToChange(newTo.toString())
+                        }
+                    },
+                    valueRange = 0f..priceSteps.lastIndex.toFloat(),
+                    steps = priceSteps.size - 2
                 )
 
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Text("150 ден.")
-                    Text("5000+ ден.")
+                    Text(
+                        text = "100 ден.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = NajdiMutedText
+                    )
+
+                    Text(
+                        text = "5000+ ден.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = NajdiMutedText
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    OutlinedTextField(
+                        value = priceFrom,
+                        onValueChange = { value ->
+                            onPriceFromChange(value.filter { it.isDigit() })
+                        },
+                        modifier = Modifier.weight(1f),
+                        label = { Text("Од цена") },
+                        placeholder = { Text("Пр. 500") },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(
+                            keyboardType = KeyboardType.Number
+                        )
+                    )
+
+                    OutlinedTextField(
+                        value = priceTo,
+                        onValueChange = { value ->
+                            onPriceToChange(value.filter { it.isDigit() })
+                        },
+                        modifier = Modifier.weight(1f),
+                        label = { Text("До цена") },
+                        placeholder = { Text("Пр. 3000") },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(
+                            keyboardType = KeyboardType.Number
+                        )
+                    )
+                }
+
+                if (hasInvalidPriceRange) {
+                    Spacer(modifier = Modifier.height(6.dp))
+
+                    Text(
+                        text = "Крајната цена не може да биде помала од почетната.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error
+                    )
                 }
             }
 
             Column {
                 Text(
-                    text = "Рејтинг",
+                    text = "Оцена",
                     style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onBackground
                 )
 
                 Spacer(modifier = Modifier.height(8.dp))
@@ -137,18 +253,11 @@ fun FilterBottomSheet(
                 LazyRow(
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    val ratings = listOf(
-                        0f to "Сите",
-                        4.0f to "4.0+",
-                        4.5f to "4.5+",
-                        4.8f to "4.8+"
-                    )
-
-                    items(ratings) { rating ->
+                    items(ratingOptions) { option ->
                         FilterChip(
-                            selected = minimumRating == rating.first,
-                            onClick = { onMinimumRatingChange(rating.first) },
-                            label = { Text(rating.second) }
+                            selected = ratingFilter == option.first,
+                            onClick = { onRatingFilterChange(option.first) },
+                            label = { Text(option.second) }
                         )
                     }
                 }
@@ -161,7 +270,8 @@ fun FilterBottomSheet(
             ) {
                 Text(
                     text = "Само достапни мајстори",
-                    style = MaterialTheme.typography.bodyLarge
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onBackground
                 )
 
                 Switch(
@@ -175,10 +285,21 @@ fun FilterBottomSheet(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = "Вклучи „по договор“",
-                    style = MaterialTheme.typography.bodyLarge
-                )
+                Column(
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text(
+                        text = "Вклучи „по договор“",
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onBackground
+                    )
+
+                    Text(
+                        text = "Прикажи мајстори без внесена фиксна цена.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = NajdiMutedText
+                    )
+                }
 
                 Switch(
                     checked = includeNegotiable,
@@ -186,5 +307,23 @@ fun FilterBottomSheet(
                 )
             }
         }
+    }
+}
+
+private fun closestPriceStepIndex(
+    value: Int
+): Int {
+    return priceSteps.indices.minBy { index ->
+        abs(priceSteps[index] - value)
+    }
+}
+
+private fun formatPriceStep(
+    value: Int
+): String {
+    return if (value >= 5000) {
+        "5000+"
+    } else {
+        value.toString()
     }
 }

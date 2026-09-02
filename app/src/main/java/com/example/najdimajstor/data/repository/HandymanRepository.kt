@@ -105,6 +105,8 @@ class HandymanRepository(
             return
         }
 
+        val trimmedName = handyman.name.trim()
+
         val documentReference = firestore
             .collection("handymen")
             .document(userId)
@@ -138,7 +140,7 @@ class HandymanRepository(
                 }
 
                 val profileData = hashMapOf<String, Any?>(
-                    "name" to handyman.name,
+                    "name" to trimmedName,
                     "profession" to handyman.profession,
                     "city" to handyman.city,
                     "price" to handyman.price,
@@ -195,7 +197,20 @@ class HandymanRepository(
                     .set(profileData, SetOptions.merge())
                     .addOnSuccessListener {
                         clearCache()
-                        onResult(true, null)
+
+                        syncHandymanNameEverywhere(
+                            userId = userId,
+                            displayName = trimmedName,
+                            onFinished = {
+                                onResult(true, null)
+                            },
+                            onError = {
+                                onResult(
+                                    false,
+                                    "Мајсторскиот профил е зачуван, но името не се ажурираше насекаде. Обиди се повторно."
+                                )
+                            }
+                        )
                     }
                     .addOnFailureListener { exception ->
                         onResult(
@@ -285,6 +300,74 @@ class HandymanRepository(
                     false,
                     exception.message ?: "Неуспешно вчитување на профилот."
                 )
+            }
+    }
+
+    private fun syncHandymanNameEverywhere(
+        userId: String,
+        displayName: String,
+        onFinished: () -> Unit,
+        onError: () -> Unit
+    ) {
+        firestore
+            .collection("users")
+            .document(userId)
+            .set(
+                mapOf(
+                    "fullName" to displayName,
+                    "updatedAt" to FieldValue.serverTimestamp()
+                ),
+                SetOptions.merge()
+            )
+            .addOnSuccessListener {
+                updateDisplayNameInExistingChats(
+                    userId = userId,
+                    displayName = displayName,
+                    onFinished = onFinished,
+                    onError = onError
+                )
+            }
+            .addOnFailureListener {
+                onError()
+            }
+    }
+
+    private fun updateDisplayNameInExistingChats(
+        userId: String,
+        displayName: String,
+        onFinished: () -> Unit,
+        onError: () -> Unit
+    ) {
+        firestore
+            .collection("chats")
+            .whereArrayContains("participantIds", userId)
+            .get()
+            .addOnSuccessListener { snapshot ->
+                if (snapshot.isEmpty) {
+                    onFinished()
+                    return@addOnSuccessListener
+                }
+
+                val batch = firestore.batch()
+
+                snapshot.documents.forEach { document ->
+                    batch.update(
+                        document.reference,
+                        "participantNames.$userId",
+                        displayName
+                    )
+                }
+
+                batch.commit()
+                    .addOnSuccessListener {
+                        onFinished()
+                    }
+                    .addOnFailureListener {
+                        onError()
+                    }
+            }
+            .addOnFailureListener {
+                onError()
             }
     }
 

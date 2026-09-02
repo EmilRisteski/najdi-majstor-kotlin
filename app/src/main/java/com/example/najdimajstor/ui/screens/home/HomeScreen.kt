@@ -43,6 +43,8 @@ import com.example.najdimajstor.ui.theme.NajdiGold
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.first
 
+private const val MAX_PRICE_FILTER = 5000
+
 @Composable
 fun HomeScreen(
     onHandymanClick: (String) -> Unit,
@@ -71,8 +73,9 @@ fun HomeScreen(
     var searchQuery by remember { mutableStateOf("") }
     var selectedCategoryId by remember { mutableStateOf<String?>(null) }
     var selectedCity by remember { mutableStateOf<String?>(null) }
-    var priceRange by remember { mutableStateOf(150f..5000f) }
-    var minimumRating by remember { mutableStateOf(0f) }
+    var priceFromFilter by remember { mutableStateOf("") }
+    var priceToFilter by remember { mutableStateOf("") }
+    var ratingFilter by remember { mutableStateOf("all") }
     var availableOnly by remember { mutableStateOf(false) }
     var includeNegotiable by remember { mutableStateOf(true) }
     var showFilterSheet by remember { mutableStateOf(false) }
@@ -108,26 +111,42 @@ fun HomeScreen(
     }
 
     val categories = MockData.serviceCategories
-    val cities = handymen.map { it.city }.distinct().sorted()
+    val cities = handymen.map { it.city }.filter { it.isNotBlank() }.distinct().sorted()
 
     val selectedCategory = categories.firstOrNull { it.id == selectedCategoryId }
 
-    val hasCustomPriceRange =
-        priceRange.start > 150f || priceRange.endInclusive < 5000f
+    val priceFromValue = priceFromFilter.toIntOrNull()
+    val priceToValue = priceToFilter.toIntOrNull()
+
+    val hasPriceFilter =
+        priceFromValue != null || priceToValue != null
+
+    val hasInvalidPriceFilter =
+        priceFromValue != null &&
+                priceToValue != null &&
+                priceToValue < priceFromValue
+
+    val selectedPriceFrom = priceFromValue ?: Int.MIN_VALUE
+
+    val selectedPriceTo = when {
+        priceToValue == null -> Int.MAX_VALUE
+        priceToValue >= MAX_PRICE_FILTER -> Int.MAX_VALUE
+        else -> priceToValue
+    }
 
     val activeFiltersCount = listOf(
         selectedCategoryId != null,
         selectedCity != null,
-        hasCustomPriceRange,
-        minimumRating > 0f,
+        hasPriceFilter,
+        ratingFilter != "all",
         availableOnly,
         !includeNegotiable
     ).count { it }
 
     val hasAdvancedFilters =
         selectedCity != null ||
-                hasCustomPriceRange ||
-                minimumRating > 0f ||
+                hasPriceFilter ||
+                ratingFilter != "all" ||
                 availableOnly ||
                 !includeNegotiable
 
@@ -141,8 +160,9 @@ fun HomeScreen(
         searchQuery,
         selectedCategoryId,
         selectedCity,
-        priceRange,
-        minimumRating,
+        priceFromFilter,
+        priceToFilter,
+        ratingFilter,
         availableOnly,
         includeNegotiable
     ) {
@@ -163,21 +183,38 @@ fun HomeScreen(
             val matchesCity = selectedCity == null ||
                     handyman.city == selectedCity
 
-            val from = handyman.priceFrom
-            val to = handyman.priceTo ?: from
+            val matchesPrice = when {
+                hasInvalidPriceFilter -> {
+                    false
+                }
 
-            val matchesFixedPrice =
-                from != null &&
-                        to != null &&
-                        from <= priceRange.endInclusive &&
-                        to >= priceRange.start
+                handyman.isPriceNegotiable -> {
+                    includeNegotiable
+                }
 
-            val matchesNegotiablePrice =
-                includeNegotiable && handyman.isPriceNegotiable
+                !hasPriceFilter -> {
+                    true
+                }
 
-            val matchesPrice = matchesFixedPrice || matchesNegotiablePrice
+                else -> {
+                    val handymanPriceFrom = handyman.priceFrom
+                    val handymanPriceTo = handyman.priceTo ?: handyman.priceFrom
 
-            val matchesRating = handyman.rating >= minimumRating
+                    handymanPriceFrom != null &&
+                            handymanPriceTo != null &&
+                            handymanPriceFrom <= selectedPriceTo &&
+                            handymanPriceTo >= selectedPriceFrom
+                }
+            }
+
+            val matchesRating = when (ratingFilter) {
+                "five" -> handyman.rating == 5.0
+                "four_plus" -> handyman.rating >= 4.0
+                "three_plus" -> handyman.rating >= 3.0
+                "below_three" -> handyman.reviewCount > 0 && handyman.rating < 3.0
+                "unrated" -> handyman.reviewCount == 0
+                else -> true
+            }
 
             val matchesAvailability = !availableOnly || handyman.isAvailable
 
@@ -399,10 +436,12 @@ fun HomeScreen(
             cities = cities,
             selectedCity = selectedCity,
             onCitySelected = { selectedCity = it },
-            priceRange = priceRange,
-            onPriceRangeChange = { priceRange = it },
-            minimumRating = minimumRating,
-            onMinimumRatingChange = { minimumRating = it },
+            priceFrom = priceFromFilter,
+            onPriceFromChange = { priceFromFilter = it },
+            priceTo = priceToFilter,
+            onPriceToChange = { priceToFilter = it },
+            ratingFilter = ratingFilter,
+            onRatingFilterChange = { ratingFilter = it },
             availableOnly = availableOnly,
             onAvailableOnlyChange = { availableOnly = it },
             includeNegotiable = includeNegotiable,
@@ -410,8 +449,9 @@ fun HomeScreen(
             onClearFilters = {
                 selectedCategoryId = null
                 selectedCity = null
-                priceRange = 150f..5000f
-                minimumRating = 0f
+                priceFromFilter = ""
+                priceToFilter = ""
+                ratingFilter = "all"
                 availableOnly = false
                 includeNegotiable = true
                 searchQuery = ""
