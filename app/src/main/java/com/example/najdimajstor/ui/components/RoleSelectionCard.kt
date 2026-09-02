@@ -4,9 +4,12 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Build
@@ -59,7 +62,7 @@ fun RoleSelectionCard(
     ) {
         Column(
             modifier = Modifier
-                .fillMaxWidth()
+                .fillMaxSize()
                 .padding(14.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
@@ -67,15 +70,25 @@ fun RoleSelectionCard(
             Icon(
                 imageVector = icon,
                 contentDescription = null,
-                tint = if (selected) NajdiGold else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f)
+                tint = if (selected) {
+                    NajdiGold
+                } else {
+                    MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f)
+                },
+                modifier = Modifier.size(28.dp)
             )
+
+            Spacer(modifier = Modifier.height(8.dp))
 
             Text(
                 text = role.title,
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface,
                 textAlign = TextAlign.Center
             )
+
+            Spacer(modifier = Modifier.height(3.dp))
 
             Text(
                 text = role.subtitle,

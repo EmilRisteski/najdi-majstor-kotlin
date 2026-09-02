@@ -6,6 +6,8 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
@@ -65,6 +67,8 @@ fun BrandLogo(
         }
 
         if (showName) {
+            Spacer(modifier = Modifier.height(12.dp))
+
             Text(
                 text = "НајдиМајстор",
                 style = MaterialTheme.typography.headlineMedium,
