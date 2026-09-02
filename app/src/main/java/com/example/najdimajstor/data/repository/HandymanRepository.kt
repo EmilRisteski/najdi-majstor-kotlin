@@ -13,6 +13,10 @@ class HandymanRepository(
 ) {
     companion object {
         private var cachedHandymen: List<Handyman>? = null
+
+        fun clearCache() {
+            cachedHandymen = null
+        }
     }
 
     fun getCachedHandymen(): List<Handyman>? {
@@ -190,7 +194,7 @@ class HandymanRepository(
                 documentReference
                     .set(profileData, SetOptions.merge())
                     .addOnSuccessListener {
-                        cachedHandymen = null
+                        clearCache()
                         onResult(true, null)
                     }
                     .addOnFailureListener { exception ->
@@ -263,7 +267,7 @@ class HandymanRepository(
                                 )
                             )
                             .addOnSuccessListener {
-                                cachedHandymen = null
+                                clearCache()
                                 onResult(true, null)
                             }
                             .addOnFailureListener { exception ->

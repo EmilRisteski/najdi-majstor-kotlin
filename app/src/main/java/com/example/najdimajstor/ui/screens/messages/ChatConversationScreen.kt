@@ -56,6 +56,8 @@ import com.example.najdimajstor.ui.theme.NajdiGold
 import com.example.najdimajstor.ui.theme.NajdiMutedText
 import com.example.najdimajstor.ui.theme.NajdiNavy
 
+private const val DELETED_USER_NAME = "Избришан корисник"
+
 @OptIn(ExperimentalComposeUiApi::class)
 @Composable
 fun ChatConversationScreen(
@@ -70,6 +72,7 @@ fun ChatConversationScreen(
 
     var chatId by remember { mutableStateOf<String?>(null) }
     var otherUserName by remember { mutableStateOf("Корисник") }
+    var isOtherUserDeleted by remember { mutableStateOf(false) }
     var messages by remember { mutableStateOf<List<ChatMessage>>(emptyList()) }
 
     var newMessage by remember { mutableStateOf("") }
@@ -91,6 +94,11 @@ fun ChatConversationScreen(
         val messageText = newMessage.trim()
 
         when {
+            isOtherUserDeleted -> {
+                errorMessage = "Овој профил е избришан. Не можеш да испраќаш нови пораки."
+                return
+            }
+
             currentChatId.isNullOrBlank() -> {
                 errorMessage = "Разговорот не е подготвен."
                 return
@@ -135,6 +143,7 @@ fun ChatConversationScreen(
     LaunchedEffect(otherUserId) {
         isLoading = true
         errorMessage = null
+        isOtherUserDeleted = false
 
         chatRepository.getOtherUserDisplayName(otherUserId) { name ->
             otherUserName = name
@@ -174,8 +183,13 @@ fun ChatConversationScreen(
                     ?.get(otherUserId)
                     .orEmpty()
 
-                if (nameFromChat.isNotBlank() && nameFromChat != "Корисник") {
+                if (nameFromChat == DELETED_USER_NAME) {
+                    otherUserName = DELETED_USER_NAME
+                    isOtherUserDeleted = true
+                    newMessage = ""
+                } else if (nameFromChat.isNotBlank() && nameFromChat != "Корисник") {
                     otherUserName = nameFromChat
+                    isOtherUserDeleted = false
                 }
 
                 if (error != null) {
@@ -223,7 +237,6 @@ fun ChatConversationScreen(
                 .fillMaxSize()
                 .background(MaterialTheme.colorScheme.background)
                 .padding(innerPadding)
-                .imePadding()
         ) {
             ChatHeader(
                 title = otherUserName,
@@ -290,17 +303,24 @@ fun ChatConversationScreen(
                 }
             }
 
-            ChatInputBar(
-                value = newMessage,
-                onValueChange = { newMessage = it },
-                messageFocusRequester = messageFocusRequester,
-                keyboardController = keyboardController,
-                isSending = isSending,
-                enabled = chatId != null && !isLoading,
-                onSendClick = {
-                    sendCurrentMessage()
-                }
-            )
+            if (isOtherUserDeleted) {
+                DeletedUserNotice(
+                    modifier = Modifier.imePadding()
+                )
+            } else {
+                ChatInputBar(
+                    value = newMessage,
+                    onValueChange = { newMessage = it },
+                    messageFocusRequester = messageFocusRequester,
+                    keyboardController = keyboardController,
+                    isSending = isSending,
+                    enabled = chatId != null && !isLoading,
+                    modifier = Modifier.imePadding(),
+                    onSendClick = {
+                        sendCurrentMessage()
+                    }
+                )
+            }
         }
     }
 }
@@ -373,6 +393,18 @@ private fun MessageBubble(
     message: ChatMessage,
     isMine: Boolean
 ) {
+    val bubbleColor = if (isMine) {
+        NajdiGold
+    } else {
+        MaterialTheme.colorScheme.surface
+    }
+
+    val textColor = if (isMine) {
+        NajdiNavy
+    } else {
+        MaterialTheme.colorScheme.onSurface
+    }
+
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = if (isMine) {
@@ -390,11 +422,8 @@ private fun MessageBubble(
                 bottomEnd = if (isMine) 4.dp else 18.dp
             ),
             colors = CardDefaults.cardColors(
-                containerColor = if (isMine) {
-                    NajdiGold
-                } else {
-                    MaterialTheme.colorScheme.surface
-                }
+                containerColor = bubbleColor,
+                contentColor = textColor
             ),
             elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
         ) {
@@ -402,13 +431,31 @@ private fun MessageBubble(
                 text = message.text,
                 modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
                 style = MaterialTheme.typography.bodyMedium,
-                color = if (isMine) {
-                    NajdiNavy
-                } else {
-                    MaterialTheme.colorScheme.onSurface
-                }
+                color = textColor
             )
         }
+    }
+}
+
+@Composable
+private fun DeletedUserNotice(
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        color = MaterialTheme.colorScheme.surface,
+        tonalElevation = 0.dp,
+        shadowElevation = 0.dp
+    ) {
+        Text(
+            text = "Овој профил е избришан. Не можеш да испраќаш нови пораки.",
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 18.dp, vertical = 16.dp),
+            style = MaterialTheme.typography.bodyMedium,
+            color = NajdiMutedText,
+            textAlign = TextAlign.Center
+        )
     }
 }
 
@@ -421,10 +468,11 @@ private fun ChatInputBar(
     keyboardController: SoftwareKeyboardController?,
     isSending: Boolean,
     enabled: Boolean,
+    modifier: Modifier = Modifier,
     onSendClick: () -> Unit
 ) {
     Surface(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth(),
         color = MaterialTheme.colorScheme.surface,
         tonalElevation = 0.dp,
         shadowElevation = 0.dp

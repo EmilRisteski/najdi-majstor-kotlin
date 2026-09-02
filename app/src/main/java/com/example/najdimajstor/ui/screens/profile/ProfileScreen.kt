@@ -18,11 +18,15 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Logout
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -44,12 +48,15 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.example.najdimajstor.data.repository.AccountRepository
 import com.example.najdimajstor.ui.components.BottomNavItem
 import com.example.najdimajstor.ui.components.MainBottomBar
 import com.example.najdimajstor.ui.theme.NajdiGold
 import com.example.najdimajstor.ui.theme.NajdiMutedText
 import com.example.najdimajstor.ui.theme.NajdiNavy
+import com.example.najdimajstor.ui.theme.NajdiSuccess
 import com.example.najdimajstor.ui.theme.NajdiTextLight
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.DocumentReference
@@ -67,6 +74,7 @@ fun ProfileScreen(
     onLogoutClick: () -> Unit
 ) {
     val firestore = remember { FirebaseFirestore.getInstance() }
+    val accountRepository = remember { AccountRepository() }
     val currentUser = remember { FirebaseAuth.getInstance().currentUser }
     val currentUserId = currentUser?.uid.orEmpty()
 
@@ -115,15 +123,45 @@ fun ProfileScreen(
         )
     }
 
+    var hasHandymanProfile by remember(currentUserId) {
+        mutableStateOf(
+            if (hasCachedDataForCurrentUser) ProfileScreenCache.hasHandymanProfile else false
+        )
+    }
+
+    var isHandymanProfilePublished by remember(currentUserId) {
+        mutableStateOf(
+            if (hasCachedDataForCurrentUser) ProfileScreenCache.isHandymanProfilePublished else false
+        )
+    }
+
+    var handymanProfession by remember(currentUserId) {
+        mutableStateOf(
+            if (hasCachedDataForCurrentUser) ProfileScreenCache.handymanProfession else ""
+        )
+    }
+
+    var handymanProfessionRequestStatus by remember(currentUserId) {
+        mutableStateOf(
+            if (hasCachedDataForCurrentUser) ProfileScreenCache.handymanProfessionRequestStatus else "approved"
+        )
+    }
+
     var isLoading by remember(currentUserId) {
         mutableStateOf(!hasCachedDataForCurrentUser)
     }
 
     var showEditProfileSheet by remember { mutableStateOf(false) }
     var showRatingsSheet by remember { mutableStateOf(false) }
+    var showPublicationDialog by remember { mutableStateOf(false) }
+    var showDeleteAccountDialog by remember { mutableStateOf(false) }
 
     var isSavingProfile by remember { mutableStateOf(false) }
+    var isAccountActionLoading by remember { mutableStateOf(false) }
+
     var editProfileErrorMessage by remember { mutableStateOf<String?>(null) }
+    var accountActionMessage by remember { mutableStateOf<String?>(null) }
+    var accountActionErrorMessage by remember { mutableStateOf<String?>(null) }
 
     fun saveCurrentStateToCache() {
         if (currentUserId.isBlank()) return
@@ -136,6 +174,10 @@ fun ProfileScreen(
         ProfileScreenCache.role = role ?: "CUSTOMER"
         ProfileScreenCache.handymanRating = handymanRating
         ProfileScreenCache.handymanReviewCount = handymanReviewCount
+        ProfileScreenCache.hasHandymanProfile = hasHandymanProfile
+        ProfileScreenCache.isHandymanProfilePublished = isHandymanProfilePublished
+        ProfileScreenCache.handymanProfession = handymanProfession
+        ProfileScreenCache.handymanProfessionRequestStatus = handymanProfessionRequestStatus
         ProfileScreenCache.hasLoaded = true
     }
 
@@ -179,6 +221,13 @@ fun ProfileScreen(
                         .document(currentUserId)
                         .get()
                         .addOnSuccessListener { handymanDocument ->
+                            hasHandymanProfile = handymanDocument.exists()
+                            isHandymanProfilePublished =
+                                handymanDocument.getBoolean("isPublished") ?: false
+                            handymanProfession =
+                                handymanDocument.getString("profession").orEmpty()
+                            handymanProfessionRequestStatus =
+                                handymanDocument.getString("professionRequestStatus") ?: "approved"
                             handymanRating = handymanDocument.getDouble("rating") ?: 0.0
                             handymanReviewCount =
                                 handymanDocument.getLong("reviewCount")?.toInt() ?: 0
@@ -187,12 +236,24 @@ fun ProfileScreen(
                             saveCurrentStateToCache()
                         }
                         .addOnFailureListener {
+                            hasHandymanProfile = false
+                            isHandymanProfilePublished = false
+                            handymanProfession = ""
+                            handymanProfessionRequestStatus = "approved"
+                            handymanRating = 0.0
+                            handymanReviewCount = 0
+
                             isLoading = false
                             saveCurrentStateToCache()
                         }
                 } else {
+                    hasHandymanProfile = false
+                    isHandymanProfilePublished = false
+                    handymanProfession = ""
+                    handymanProfessionRequestStatus = "approved"
                     handymanRating = 0.0
                     handymanReviewCount = 0
+
                     isLoading = false
                     saveCurrentStateToCache()
                 }
@@ -212,6 +273,10 @@ fun ProfileScreen(
         "CUSTOMER" -> "Клиент"
         else -> ""
     }
+
+    val canReactivateHandymanProfile =
+        handymanProfession.isNotBlank() &&
+                handymanProfessionRequestStatus == "approved"
 
     if (showEditProfileSheet) {
         EditClientProfileSheet(
@@ -303,6 +368,88 @@ fun ProfileScreen(
         )
     }
 
+    if (showPublicationDialog) {
+        val targetPublishedState = !isHandymanProfilePublished
+
+        ConfirmProfileActionDialog(
+            title = if (targetPublishedState) {
+                "Активирај мајсторски профил"
+            } else {
+                "Деактивирај мајсторски профил"
+            },
+            text = if (targetPublishedState) {
+                "Твојот мајсторски профил повторно ќе се прикажува во пребарување и на почетната страна."
+            } else {
+                "Твојот мајсторски профил ќе биде скриен од пребарување и од почетната страна. Профилот и податоците ќе останат зачувани."
+            },
+            confirmText = if (targetPublishedState) {
+                "Активирај"
+            } else {
+                "Деактивирај"
+            },
+            isDanger = !targetPublishedState,
+            onConfirm = {
+                showPublicationDialog = false
+                isAccountActionLoading = true
+                accountActionMessage = null
+                accountActionErrorMessage = null
+
+                accountRepository.setHandymanProfilePublished(
+                    isPublished = targetPublishedState
+                ) { success, error ->
+                    isAccountActionLoading = false
+
+                    if (success) {
+                        isHandymanProfilePublished = targetPublishedState
+                        saveCurrentStateToCache()
+
+                        accountActionMessage = if (targetPublishedState) {
+                            "Мајсторскиот профил е активиран."
+                        } else {
+                            "Мајсторскиот профил е деактивиран."
+                        }
+                    } else {
+                        accountActionErrorMessage =
+                            error ?: "Промената не беше зачувана."
+                    }
+                }
+            },
+            onDismiss = {
+                showPublicationDialog = false
+            }
+        )
+    }
+
+    if (showDeleteAccountDialog) {
+        ConfirmProfileActionDialog(
+            title = "Избриши профил",
+            text = "Ова трајно ќе го избрише твојот профил. Зачуваните мајстори ќе бидат избришани, твоите рецензии ќе бидат отстранети, а старите разговори ќе останат со име „Избришан корисник“. Ова не може да се врати.",
+            confirmText = "Избриши",
+            isDanger = true,
+            onConfirm = {
+                showDeleteAccountDialog = false
+                isAccountActionLoading = true
+                accountActionMessage = null
+                accountActionErrorMessage = null
+
+                accountRepository.deleteCurrentAccount { success, error ->
+                    isAccountActionLoading = false
+
+                    if (success) {
+                        ProfileScreenCache.clear()
+                        onLogoutClick()
+                    } else {
+                        accountActionErrorMessage =
+                            error ?: "Профилот не беше избришан."
+                    }
+                }
+            },
+            onDismiss = {
+                showDeleteAccountDialog = false
+            }
+        )
+    }
+
     Scaffold(
         bottomBar = {
             MainBottomBar(
@@ -386,6 +533,28 @@ fun ProfileScreen(
                             showRatingsSheet = true
                         },
                         onLogoutClick = onLogoutClick
+                    )
+                }
+
+                item {
+                    DangerZoneCard(
+                        isHandyman = isHandyman,
+                        hasHandymanProfile = hasHandymanProfile,
+                        isHandymanProfilePublished = isHandymanProfilePublished,
+                        canReactivateHandymanProfile = canReactivateHandymanProfile,
+                        isLoading = isAccountActionLoading,
+                        successMessage = accountActionMessage,
+                        errorMessage = accountActionErrorMessage,
+                        onPublicationClick = {
+                            accountActionMessage = null
+                            accountActionErrorMessage = null
+                            showPublicationDialog = true
+                        },
+                        onDeleteAccountClick = {
+                            accountActionMessage = null
+                            accountActionErrorMessage = null
+                            showDeleteAccountDialog = true
+                        }
                     )
                 }
             }
@@ -689,6 +858,105 @@ private fun ProfileActionsCard(
 }
 
 @Composable
+private fun DangerZoneCard(
+    isHandyman: Boolean,
+    hasHandymanProfile: Boolean,
+    isHandymanProfilePublished: Boolean,
+    canReactivateHandymanProfile: Boolean,
+    isLoading: Boolean,
+    successMessage: String?,
+    errorMessage: String?,
+    onPublicationClick: () -> Unit,
+    onDeleteAccountClick: () -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(24.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(18.dp)
+        ) {
+            if (isHandyman && hasHandymanProfile) {
+                DangerActionRow(
+                    icon = if (isHandymanProfilePublished) {
+                        Icons.Default.VisibilityOff
+                    } else {
+                        Icons.Default.Visibility
+                    },
+                    title = if (isHandymanProfilePublished) {
+                        "Деактивирај мајсторски профил"
+                    } else {
+                        "Активирај мајсторски профил"
+                    },
+                    subtitle = if (isHandymanProfilePublished) {
+                        "Сокриј го профилот од пребарување"
+                    } else if (canReactivateHandymanProfile) {
+                        "Повторно прикажи го профилот во пребарување"
+                    } else {
+                        "Достапно откако професијата ќе биде одобрена"
+                    },
+                    enabled = !isLoading &&
+                            (isHandymanProfilePublished || canReactivateHandymanProfile),
+                    isDanger = isHandymanProfilePublished,
+                    onClick = onPublicationClick
+                )
+
+                Spacer(modifier = Modifier.height(14.dp))
+            }
+
+            DangerActionRow(
+                icon = Icons.Default.Delete,
+                title = "Избриши профил",
+                subtitle = "Трајно избриши го профилот и личните податоци",
+                enabled = !isLoading,
+                isDanger = true,
+                onClick = onDeleteAccountClick
+            )
+
+            if (isLoading) {
+                Spacer(modifier = Modifier.height(12.dp))
+
+                Text(
+                    text = "Се обработува...",
+                    modifier = Modifier.fillMaxWidth(),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = NajdiMutedText,
+                    textAlign = TextAlign.Center
+                )
+            }
+
+            if (successMessage != null) {
+                Spacer(modifier = Modifier.height(12.dp))
+
+                Text(
+                    text = successMessage,
+                    modifier = Modifier.fillMaxWidth(),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = NajdiSuccess,
+                    textAlign = TextAlign.Center
+                )
+            }
+
+            if (errorMessage != null) {
+                Spacer(modifier = Modifier.height(12.dp))
+
+                Text(
+                    text = errorMessage,
+                    modifier = Modifier.fillMaxWidth(),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.error,
+                    textAlign = TextAlign.Center
+                )
+            }
+        }
+    }
+}
+
+@Composable
 private fun ProfileInfoRow(
     icon: ImageVector,
     label: String,
@@ -755,6 +1023,75 @@ private fun ProfileActionRow(
 }
 
 @Composable
+private fun DangerActionRow(
+    icon: ImageVector,
+    title: String,
+    subtitle: String,
+    enabled: Boolean,
+    isDanger: Boolean,
+    onClick: () -> Unit
+) {
+    val iconTint = if (isDanger) {
+        MaterialTheme.colorScheme.error
+    } else {
+        NajdiGold
+    }
+
+    val titleColor = if (!enabled) {
+        MaterialTheme.colorScheme.onSurface.copy(alpha = 0.45f)
+    } else if (isDanger) {
+        MaterialTheme.colorScheme.error
+    } else {
+        MaterialTheme.colorScheme.onSurface
+    }
+
+    val subtitleColor = if (!enabled) {
+        NajdiMutedText.copy(alpha = 0.55f)
+    } else {
+        NajdiMutedText
+    }
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .then(
+                if (enabled) {
+                    Modifier.clickable { onClick() }
+                } else {
+                    Modifier
+                }
+            ),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        DangerIconBox(
+            icon = icon,
+            tint = if (enabled) {
+                iconTint
+            } else {
+                iconTint.copy(alpha = 0.45f)
+            }
+        )
+
+        Spacer(modifier = Modifier.width(12.dp))
+
+        Column {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.bodyLarge,
+                fontWeight = FontWeight.SemiBold,
+                color = titleColor
+            )
+
+            Text(
+                text = subtitle,
+                style = MaterialTheme.typography.bodyMedium,
+                color = subtitleColor
+            )
+        }
+    }
+}
+
+@Composable
 private fun IconBox(
     icon: ImageVector
 ) {
@@ -773,6 +1110,76 @@ private fun IconBox(
             tint = NajdiGold
         )
     }
+}
+
+@Composable
+private fun DangerIconBox(
+    icon: ImageVector,
+    tint: androidx.compose.ui.graphics.Color
+) {
+    Box(
+        modifier = Modifier
+            .size(44.dp)
+            .background(
+                color = tint.copy(alpha = 0.10f),
+                shape = RoundedCornerShape(14.dp)
+            ),
+        contentAlignment = Alignment.Center
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            tint = tint
+        )
+    }
+}
+
+@Composable
+private fun ConfirmProfileActionDialog(
+    title: String,
+    text: String,
+    confirmText: String,
+    isDanger: Boolean,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text(
+                text = title,
+                fontWeight = FontWeight.Bold
+            )
+        },
+        text = {
+            Text(text = text)
+        },
+        confirmButton = {
+            TextButton(
+                onClick = onConfirm
+            ) {
+                Text(
+                    text = confirmText,
+                    color = if (isDanger) {
+                        MaterialTheme.colorScheme.error
+                    } else {
+                        NajdiGold
+                    },
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        },
+        dismissButton = {
+            TextButton(
+                onClick = onDismiss
+            ) {
+                Text(
+                    text = "Откажи",
+                    color = NajdiMutedText
+                )
+            }
+        }
+    )
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -932,7 +1339,27 @@ private object ProfileScreenCache {
     var role: String = "CUSTOMER"
     var handymanRating: Double = 0.0
     var handymanReviewCount: Int = 0
+    var hasHandymanProfile: Boolean = false
+    var isHandymanProfilePublished: Boolean = false
+    var handymanProfession: String = ""
+    var handymanProfessionRequestStatus: String = "approved"
     var hasLoaded: Boolean = false
+
+    fun clear() {
+        userId = null
+        savedCount = 0
+        fullName = "Корисник"
+        email = ""
+        phone = ""
+        role = "CUSTOMER"
+        handymanRating = 0.0
+        handymanReviewCount = 0
+        hasHandymanProfile = false
+        isHandymanProfilePublished = false
+        handymanProfession = ""
+        handymanProfessionRequestStatus = "approved"
+        hasLoaded = false
+    }
 }
 
 private fun updateReviewerNameInExistingReviews(
