@@ -10,6 +10,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.example.najdimajstor.data.repository.AuthRepository
+import com.example.najdimajstor.ui.screens.auth.GoogleRoleSelectionScreen
 import com.example.najdimajstor.ui.screens.auth.LoginScreen
 import com.example.najdimajstor.ui.screens.auth.RegisterScreen
 import com.example.najdimajstor.ui.screens.details.HandymanDetailsScreen
@@ -43,6 +44,22 @@ fun AppNavigation() {
         }
     }
 
+    fun navigateToHomeFromAuth() {
+        navController.navigate(Screen.Home.route) {
+            popUpTo(Screen.Login.route) {
+                inclusive = true
+            }
+
+            launchSingleTop = true
+        }
+    }
+
+    fun navigateToGoogleRoleSelection() {
+        navController.navigate(Screen.GoogleRoleSelection.route) {
+            launchSingleTop = true
+        }
+    }
+
     NavHost(
         navController = navController,
         startDestination = Screen.Splash.route,
@@ -62,18 +79,32 @@ fun AppNavigation() {
         composable(Screen.Splash.route) {
             SplashScreen(
                 onSplashFinished = {
-                    val destination = if (authRepository.isUserLoggedIn()) {
-                        Screen.Home.route
-                    } else {
-                        Screen.Login.route
-                    }
+                    if (!authRepository.isUserLoggedIn()) {
+                        navController.navigate(Screen.Login.route) {
+                            popUpTo(Screen.Splash.route) {
+                                inclusive = true
+                            }
 
-                    navController.navigate(destination) {
-                        popUpTo(Screen.Splash.route) {
-                            inclusive = true
+                            launchSingleTop = true
                         }
 
-                        launchSingleTop = true
+                        return@SplashScreen
+                    }
+
+                    authRepository.checkCurrentUserProfile { hasProfile ->
+                        val destination = if (hasProfile) {
+                            Screen.Home.route
+                        } else {
+                            Screen.GoogleRoleSelection.route
+                        }
+
+                        navController.navigate(destination) {
+                            popUpTo(Screen.Splash.route) {
+                                inclusive = true
+                            }
+
+                            launchSingleTop = true
+                        }
                     }
                 }
             )
@@ -82,16 +113,13 @@ fun AppNavigation() {
         composable(Screen.Login.route) {
             LoginScreen(
                 onLoginClick = {
-                    navController.navigate(Screen.Home.route) {
-                        popUpTo(Screen.Login.route) {
-                            inclusive = true
-                        }
-
-                        launchSingleTop = true
-                    }
+                    navigateToHomeFromAuth()
                 },
                 onRegisterClick = {
                     navController.navigate(Screen.Register.route)
+                },
+                onGoogleNewUserClick = {
+                    navigateToGoogleRoleSelection()
                 }
             )
         }
@@ -99,16 +127,27 @@ fun AppNavigation() {
         composable(Screen.Register.route) {
             RegisterScreen(
                 onRegisterClick = {
+                    navigateToHomeFromAuth()
+                },
+                onLoginClick = {
+                    navController.popBackStack()
+                },
+                onGoogleNewUserClick = {
+                    navigateToGoogleRoleSelection()
+                }
+            )
+        }
+
+        composable(Screen.GoogleRoleSelection.route) {
+            GoogleRoleSelectionScreen(
+                onContinueClick = {
                     navController.navigate(Screen.Home.route) {
-                        popUpTo(Screen.Login.route) {
+                        popUpTo(Screen.GoogleRoleSelection.route) {
                             inclusive = true
                         }
 
                         launchSingleTop = true
                     }
-                },
-                onLoginClick = {
-                    navController.popBackStack()
                 }
             )
         }
