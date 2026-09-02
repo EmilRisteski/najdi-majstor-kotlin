@@ -40,25 +40,46 @@ fun FavoritesScreen(
     val favoriteRepository = remember { FavoriteRepository() }
     val handymanRepository = remember { HandymanRepository() }
 
-    var handymen by remember { mutableStateOf<List<Handyman>>(emptyList()) }
-    var favoriteIds by remember { mutableStateOf<Set<String>>(emptySet()) }
+    val cachedHandymen = remember {
+        handymanRepository.getCachedHandymen()
+    }
 
-    var isLoading by remember { mutableStateOf(true) }
+    val cachedFavoriteIds = remember {
+        favoriteRepository.getCachedFavoriteIds()
+    }
+
+    var handymen by remember { mutableStateOf<List<Handyman>>(cachedHandymen.orEmpty()) }
+    var favoriteIds by remember { mutableStateOf(cachedFavoriteIds ?: emptySet()) }
+
+    var isLoading by remember {
+        mutableStateOf(cachedHandymen == null || cachedFavoriteIds == null)
+    }
+
     var errorMessage by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(Unit) {
         favoriteRepository.getFavoriteIds { ids, favoriteError ->
-            if (favoriteError != null) {
+            if (favoriteError != null && cachedFavoriteIds == null) {
                 errorMessage = favoriteError
                 isLoading = false
                 return@getFavoriteIds
             }
 
-            favoriteIds = ids
+            if (favoriteError == null) {
+                favoriteIds = ids
+                errorMessage = null
+            }
 
             handymanRepository.getHandymen { result, handymanError ->
-                handymen = result
-                errorMessage = handymanError
+                if (handymanError != null && cachedHandymen == null) {
+                    errorMessage = handymanError
+                } else {
+                    handymen = result
+                    if (handymanError == null) {
+                        errorMessage = null
+                    }
+                }
+
                 isLoading = false
             }
         }

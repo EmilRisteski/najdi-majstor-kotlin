@@ -52,6 +52,7 @@ import com.example.najdimajstor.ui.theme.NajdiMutedText
 import com.example.najdimajstor.ui.theme.NajdiNavy
 import com.example.najdimajstor.ui.theme.NajdiTextLight
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.DocumentReference
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.SetOptions
@@ -66,50 +67,106 @@ fun ProfileScreen(
     onLogoutClick: () -> Unit
 ) {
     val firestore = remember { FirebaseFirestore.getInstance() }
+    val currentUser = remember { FirebaseAuth.getInstance().currentUser }
+    val currentUserId = currentUser?.uid.orEmpty()
 
-    var savedCount by remember { mutableStateOf(0) }
+    val hasCachedDataForCurrentUser =
+        ProfileScreenCache.userId == currentUserId && ProfileScreenCache.hasLoaded
 
-    var fullName by remember { mutableStateOf("Корисник") }
-    var email by remember { mutableStateOf("") }
-    var phone by remember { mutableStateOf("") }
-    var role by remember { mutableStateOf<String?>(null) }
+    var savedCount by remember(currentUserId) {
+        mutableStateOf(
+            if (hasCachedDataForCurrentUser) ProfileScreenCache.savedCount else 0
+        )
+    }
 
-    var handymanRating by remember { mutableStateOf(0.0) }
-    var handymanReviewCount by remember { mutableStateOf(0) }
+    var fullName by remember(currentUserId) {
+        mutableStateOf(
+            if (hasCachedDataForCurrentUser) ProfileScreenCache.fullName else "Корисник"
+        )
+    }
 
-    var isLoading by remember { mutableStateOf(true) }
+    var email by remember(currentUserId) {
+        mutableStateOf(
+            if (hasCachedDataForCurrentUser) ProfileScreenCache.email else ""
+        )
+    }
+
+    var phone by remember(currentUserId) {
+        mutableStateOf(
+            if (hasCachedDataForCurrentUser) ProfileScreenCache.phone else ""
+        )
+    }
+
+    var role by remember(currentUserId) {
+        mutableStateOf(
+            if (hasCachedDataForCurrentUser) ProfileScreenCache.role else null
+        )
+    }
+
+    var handymanRating by remember(currentUserId) {
+        mutableStateOf(
+            if (hasCachedDataForCurrentUser) ProfileScreenCache.handymanRating else 0.0
+        )
+    }
+
+    var handymanReviewCount by remember(currentUserId) {
+        mutableStateOf(
+            if (hasCachedDataForCurrentUser) ProfileScreenCache.handymanReviewCount else 0
+        )
+    }
+
+    var isLoading by remember(currentUserId) {
+        mutableStateOf(!hasCachedDataForCurrentUser)
+    }
+
     var showEditProfileSheet by remember { mutableStateOf(false) }
     var showRatingsSheet by remember { mutableStateOf(false) }
 
     var isSavingProfile by remember { mutableStateOf(false) }
     var editProfileErrorMessage by remember { mutableStateOf<String?>(null) }
 
-    LaunchedEffect(Unit) {
-        val currentUser = FirebaseAuth.getInstance().currentUser
-        val userId = currentUser?.uid
+    fun saveCurrentStateToCache() {
+        if (currentUserId.isBlank()) return
 
-        if (userId == null) {
+        ProfileScreenCache.userId = currentUserId
+        ProfileScreenCache.savedCount = savedCount
+        ProfileScreenCache.fullName = fullName
+        ProfileScreenCache.email = email
+        ProfileScreenCache.phone = phone
+        ProfileScreenCache.role = role ?: "CUSTOMER"
+        ProfileScreenCache.handymanRating = handymanRating
+        ProfileScreenCache.handymanReviewCount = handymanReviewCount
+        ProfileScreenCache.hasLoaded = true
+    }
+
+    LaunchedEffect(currentUserId) {
+        if (currentUserId.isBlank()) {
             isLoading = false
+            role = "CUSTOMER"
             return@LaunchedEffect
         }
 
         firestore
             .collection("users")
-            .document(userId)
+            .document(currentUserId)
             .collection("favorites")
             .get()
             .addOnSuccessListener { snapshot ->
                 savedCount = snapshot.size()
+
+                if (!isLoading || hasCachedDataForCurrentUser) {
+                    saveCurrentStateToCache()
+                }
             }
 
         firestore
             .collection("users")
-            .document(userId)
+            .document(currentUserId)
             .get()
             .addOnSuccessListener { document ->
                 fullName = document.getString("fullName").orEmpty().ifBlank { "Корисник" }
                 email = document.getString("email").orEmpty().ifBlank {
-                    currentUser.email.orEmpty()
+                    currentUser?.email.orEmpty()
                 }
                 phone = document.getString("phone").orEmpty()
 
@@ -119,25 +176,32 @@ fun ProfileScreen(
                 if (loadedRole == "HANDYMAN") {
                     firestore
                         .collection("handymen")
-                        .document(userId)
+                        .document(currentUserId)
                         .get()
                         .addOnSuccessListener { handymanDocument ->
                             handymanRating = handymanDocument.getDouble("rating") ?: 0.0
                             handymanReviewCount =
                                 handymanDocument.getLong("reviewCount")?.toInt() ?: 0
+
                             isLoading = false
+                            saveCurrentStateToCache()
                         }
                         .addOnFailureListener {
                             isLoading = false
+                            saveCurrentStateToCache()
                         }
                 } else {
+                    handymanRating = 0.0
+                    handymanReviewCount = 0
                     isLoading = false
+                    saveCurrentStateToCache()
                 }
             }
             .addOnFailureListener {
-                email = currentUser.email.orEmpty()
+                email = currentUser?.email.orEmpty()
                 role = "CUSTOMER"
                 isLoading = false
+                saveCurrentStateToCache()
             }
     }
 
@@ -162,9 +226,7 @@ fun ProfileScreen(
                 }
             },
             onSaveClick = { newFullName, newPhone ->
-                val currentUserId = FirebaseAuth.getInstance().currentUser?.uid
-
-                if (currentUserId == null) {
+                if (currentUserId.isBlank()) {
                     editProfileErrorMessage = "Корисникот не е најавен."
                     return@EditClientProfileSheet
                 }
@@ -193,6 +255,7 @@ fun ProfileScreen(
                     .addOnSuccessListener {
                         fullName = trimmedName
                         phone = trimmedPhone
+                        saveCurrentStateToCache()
 
                         updateReviewerNameInExistingReviews(
                             firestore = firestore,
@@ -860,6 +923,18 @@ private fun MyRatingsSheet(
     }
 }
 
+private object ProfileScreenCache {
+    var userId: String? = null
+    var savedCount: Int = 0
+    var fullName: String = "Корисник"
+    var email: String = ""
+    var phone: String = ""
+    var role: String = "CUSTOMER"
+    var handymanRating: Double = 0.0
+    var handymanReviewCount: Int = 0
+    var hasLoaded: Boolean = false
+}
+
 private fun updateReviewerNameInExistingReviews(
     firestore: FirebaseFirestore,
     userId: String,
@@ -882,7 +957,7 @@ private fun updateReviewerNameInExistingReviews(
                     .document(userId)
             }
 
-            val existingReviewReferences = mutableListOf<com.google.firebase.firestore.DocumentReference>()
+            val existingReviewReferences = mutableListOf<DocumentReference>()
 
             var completedChecks = 0
             var hasFailed = false

@@ -1,5 +1,7 @@
 package com.example.najdimajstor.navigation
 
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.navigation.NavType
@@ -25,6 +27,12 @@ fun AppNavigation() {
     val authRepository = remember { AuthRepository() }
 
     fun navigateBottomBar(destinationRoute: String) {
+        val currentRoute = navController.currentBackStackEntry?.destination?.route
+
+        if (currentRoute == destinationRoute) {
+            return
+        }
+
         navController.navigate(destinationRoute) {
             popUpTo(Screen.Home.route) {
                 saveState = true
@@ -37,7 +45,19 @@ fun AppNavigation() {
 
     NavHost(
         navController = navController,
-        startDestination = Screen.Splash.route
+        startDestination = Screen.Splash.route,
+        enterTransition = {
+            EnterTransition.None
+        },
+        exitTransition = {
+            ExitTransition.None
+        },
+        popEnterTransition = {
+            EnterTransition.None
+        },
+        popExitTransition = {
+            ExitTransition.None
+        }
     ) {
         composable(Screen.Splash.route) {
             SplashScreen(
@@ -52,6 +72,8 @@ fun AppNavigation() {
                         popUpTo(Screen.Splash.route) {
                             inclusive = true
                         }
+
+                        launchSingleTop = true
                     }
                 }
             )
@@ -64,6 +86,8 @@ fun AppNavigation() {
                         popUpTo(Screen.Login.route) {
                             inclusive = true
                         }
+
+                        launchSingleTop = true
                     }
                 },
                 onRegisterClick = {
@@ -79,6 +103,8 @@ fun AppNavigation() {
                         popUpTo(Screen.Login.route) {
                             inclusive = true
                         }
+
+                        launchSingleTop = true
                     }
                 },
                 onLoginClick = {
@@ -90,7 +116,9 @@ fun AppNavigation() {
         composable(Screen.Home.route) {
             HomeScreen(
                 onHandymanClick = { handymanId ->
-                    navController.navigate(Screen.HandymanDetails.createRoute(handymanId))
+                    navController.navigate(Screen.HandymanDetails.createRoute(handymanId)) {
+                        launchSingleTop = true
+                    }
                 },
                 onFavoritesClick = {
                     navigateBottomBar(Screen.Favorites.route)
@@ -107,7 +135,9 @@ fun AppNavigation() {
         composable(Screen.Favorites.route) {
             FavoritesScreen(
                 onHandymanClick = { handymanId ->
-                    navController.navigate(Screen.HandymanDetails.createRoute(handymanId))
+                    navController.navigate(Screen.HandymanDetails.createRoute(handymanId)) {
+                        launchSingleTop = true
+                    }
                 },
                 onHomeClick = {
                     navigateBottomBar(Screen.Home.route)
@@ -132,7 +162,9 @@ fun AppNavigation() {
                 onChatClick = { otherUserId ->
                     navController.navigate(
                         Screen.ChatConversation.createRoute(otherUserId)
-                    )
+                    ) {
+                        launchSingleTop = true
+                    }
                 },
                 onProfileClick = {
                     navigateBottomBar(Screen.Profile.route)
@@ -152,7 +184,9 @@ fun AppNavigation() {
                     navigateBottomBar(Screen.Messages.route)
                 },
                 onHandymanSetupClick = {
-                    navController.navigate(Screen.HandymanSetup.route)
+                    navController.navigate(Screen.HandymanSetup.route) {
+                        launchSingleTop = true
+                    }
                 },
                 onLogoutClick = {
                     authRepository.logout()
@@ -161,6 +195,8 @@ fun AppNavigation() {
                         popUpTo(Screen.Home.route) {
                             inclusive = true
                         }
+
+                        launchSingleTop = true
                     }
                 }
             )
@@ -192,7 +228,9 @@ fun AppNavigation() {
                 onMessageClick = { otherUserId ->
                     navController.navigate(
                         Screen.ChatConversation.createRoute(otherUserId)
-                    )
+                    ) {
+                        launchSingleTop = true
+                    }
                 }
             )
         }

@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -20,7 +21,9 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -37,9 +40,6 @@ import com.example.najdimajstor.ui.components.HandymanCard
 import com.example.najdimajstor.ui.components.HomeHeader
 import com.example.najdimajstor.ui.components.MainBottomBar
 import com.example.najdimajstor.ui.theme.NajdiGold
-import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.snapshotFlow
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.first
 
@@ -53,10 +53,18 @@ fun HomeScreen(
     val handymanRepository = remember { HandymanRepository() }
     val favoriteRepository = remember { FavoriteRepository() }
 
-    var handymen by remember { mutableStateOf<List<Handyman>>(emptyList()) }
-    var favoriteIds by remember { mutableStateOf<Set<String>>(emptySet()) }
+    val cachedHandymen = remember {
+        handymanRepository.getCachedHandymen()
+    }
 
-    var isLoading by remember { mutableStateOf(true) }
+    val cachedFavoriteIds = remember {
+        favoriteRepository.getCachedFavoriteIds()
+    }
+
+    var handymen by remember { mutableStateOf<List<Handyman>>(cachedHandymen.orEmpty()) }
+    var favoriteIds by remember { mutableStateOf(cachedFavoriteIds ?: emptySet()) }
+
+    var isLoading by remember { mutableStateOf(cachedHandymen == null) }
     var loadErrorMessage by remember { mutableStateOf<String?>(null) }
     var favoriteErrorMessage by remember { mutableStateOf<String?>(null) }
 
@@ -210,7 +218,6 @@ fun HomeScreen(
             }
         }
     }
-
 
     Scaffold(
         bottomBar = {

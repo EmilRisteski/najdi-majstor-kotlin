@@ -8,6 +8,15 @@ class FavoriteRepository(
     private val auth: FirebaseAuth = FirebaseAuth.getInstance(),
     private val firestore: FirebaseFirestore = FirebaseFirestore.getInstance()
 ) {
+    companion object {
+        private val cachedFavoriteIdsByUserId = mutableMapOf<String, Set<String>>()
+    }
+
+    fun getCachedFavoriteIds(): Set<String>? {
+        val userId = auth.currentUser?.uid ?: return null
+        return cachedFavoriteIdsByUserId[userId]
+    }
+
     fun getFavoriteIds(
         onResult: (Set<String>, String?) -> Unit
     ) {
@@ -16,6 +25,12 @@ class FavoriteRepository(
         if (userId == null) {
             onResult(emptySet(), "Корисникот не е најавен.")
             return
+        }
+
+        val cachedResult = cachedFavoriteIdsByUserId[userId]
+
+        if (cachedResult != null) {
+            onResult(cachedResult, null)
         }
 
         firestore.collection("users")
@@ -27,10 +42,18 @@ class FavoriteRepository(
                     document.id
                 }.toSet()
 
+                cachedFavoriteIdsByUserId[userId] = favoriteIds
                 onResult(favoriteIds, null)
             }
             .addOnFailureListener { exception ->
-                onResult(emptySet(), exception.message ?: "Неуспешно вчитување на зачувани мајстори.")
+                if (cachedResult == null) {
+                    onResult(
+                        emptySet(),
+                        exception.message ?: "Неуспешно вчитување на зачувани мајстори."
+                    )
+                } else {
+                    onResult(cachedResult, null)
+                }
             }
     }
 
@@ -56,6 +79,9 @@ class FavoriteRepository(
             .document(handymanId)
             .set(favoriteData)
             .addOnSuccessListener {
+                cachedFavoriteIdsByUserId[userId] =
+                    cachedFavoriteIdsByUserId[userId].orEmpty() + handymanId
+
                 onResult(true, null)
             }
             .addOnFailureListener { exception ->
@@ -80,6 +106,9 @@ class FavoriteRepository(
             .document(handymanId)
             .delete()
             .addOnSuccessListener {
+                cachedFavoriteIdsByUserId[userId] =
+                    cachedFavoriteIdsByUserId[userId].orEmpty() - handymanId
+
                 onResult(true, null)
             }
             .addOnFailureListener { exception ->

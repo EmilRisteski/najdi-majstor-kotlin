@@ -42,7 +42,6 @@ import com.example.najdimajstor.ui.components.BottomNavItem
 import com.example.najdimajstor.ui.components.MainBottomBar
 import com.example.najdimajstor.ui.theme.NajdiGold
 import com.example.najdimajstor.ui.theme.NajdiMutedText
-import com.example.najdimajstor.ui.theme.NajdiNavy
 import java.text.SimpleDateFormat
 import java.util.Locale
 
@@ -58,15 +57,42 @@ fun MessagesScreen(
         chatRepository.getCurrentUserId().orEmpty()
     }
 
-    var chats by remember { mutableStateOf<List<Chat>>(emptyList()) }
-    var isLoading by remember { mutableStateOf(true) }
-    var errorMessage by remember { mutableStateOf<String?>(null) }
+    val hasCachedDataForCurrentUser = MessagesScreenCache.userId == currentUserId
 
-    DisposableEffect(Unit) {
+    var chats by remember(currentUserId) {
+        mutableStateOf(
+            if (hasCachedDataForCurrentUser) {
+                MessagesScreenCache.chats
+            } else {
+                emptyList()
+            }
+        )
+    }
+
+    var isLoading by remember(currentUserId) {
+        mutableStateOf(!hasCachedDataForCurrentUser || !MessagesScreenCache.hasLoaded)
+    }
+
+    var errorMessage by remember(currentUserId) {
+        mutableStateOf(
+            if (hasCachedDataForCurrentUser) {
+                MessagesScreenCache.errorMessage
+            } else {
+                null
+            }
+        )
+    }
+
+    DisposableEffect(currentUserId) {
         val registration = chatRepository.listenToUserChats { result, error ->
             chats = result
             errorMessage = error
             isLoading = false
+
+            MessagesScreenCache.userId = currentUserId
+            MessagesScreenCache.chats = result
+            MessagesScreenCache.errorMessage = error
+            MessagesScreenCache.hasLoaded = true
         }
 
         onDispose {
@@ -102,7 +128,6 @@ fun MessagesScreen(
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onBackground
                 )
-
             }
 
             when {
@@ -194,7 +219,7 @@ private fun ChatListItem(
                 modifier = Modifier
                     .size(52.dp)
                     .background(
-                        color = NajdiGold,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f),
                         shape = CircleShape
                     ),
                 contentAlignment = Alignment.Center
@@ -203,7 +228,7 @@ private fun ChatListItem(
                     text = initials,
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
-                    color = NajdiNavy
+                    color = NajdiGold
                 )
             }
 
@@ -315,6 +340,13 @@ private fun MessagesCenteredState(
             textAlign = TextAlign.Center
         )
     }
+}
+
+private object MessagesScreenCache {
+    var userId: String? = null
+    var chats: List<Chat> = emptyList()
+    var errorMessage: String? = null
+    var hasLoaded: Boolean = false
 }
 
 private fun getInitials(name: String): String {

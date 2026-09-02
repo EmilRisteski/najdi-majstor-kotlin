@@ -11,9 +11,23 @@ class HandymanRepository(
     private val auth: FirebaseAuth = FirebaseAuth.getInstance(),
     private val firestore: FirebaseFirestore = FirebaseFirestore.getInstance()
 ) {
+    companion object {
+        private var cachedHandymen: List<Handyman>? = null
+    }
+
+    fun getCachedHandymen(): List<Handyman>? {
+        return cachedHandymen
+    }
+
     fun getHandymen(
         onResult: (List<Handyman>, String?) -> Unit
     ) {
+        val cachedResult = cachedHandymen
+
+        if (cachedResult != null) {
+            onResult(cachedResult, null)
+        }
+
         firestore.collection("handymen")
             .get()
             .addOnSuccessListener { snapshot ->
@@ -21,13 +35,18 @@ class HandymanRepository(
                     .map { it.toHandyman() }
                     .filter { it.isPublished }
 
+                cachedHandymen = handymen
                 onResult(handymen, null)
             }
             .addOnFailureListener { exception ->
-                onResult(
-                    emptyList(),
-                    exception.message ?: "Неуспешно вчитување на мајстори."
-                )
+                if (cachedResult == null) {
+                    onResult(
+                        emptyList(),
+                        exception.message ?: "Неуспешно вчитување на мајстори."
+                    )
+                } else {
+                    onResult(cachedResult, null)
+                }
             }
     }
 
@@ -40,21 +59,34 @@ class HandymanRepository(
             return
         }
 
+        val cachedResult = cachedHandymen
+            ?.firstOrNull { handyman -> handyman.id == handymanId }
+
+        if (cachedResult != null) {
+            onResult(cachedResult, null)
+        }
+
         firestore.collection("handymen")
             .document(handymanId)
             .get()
             .addOnSuccessListener { document ->
                 if (document.exists()) {
-                    onResult(document.toHandyman(), null)
-                } else {
+                    val handyman = document.toHandyman()
+                    updateCachedHandyman(handyman)
+                    onResult(handyman, null)
+                } else if (cachedResult == null) {
                     onResult(null, "Мајсторот не е пронајден.")
                 }
             }
             .addOnFailureListener { exception ->
-                onResult(
-                    null,
-                    exception.message ?: "Неуспешно вчитување на мајсторот."
-                )
+                if (cachedResult == null) {
+                    onResult(
+                        null,
+                        exception.message ?: "Неуспешно вчитување на мајсторот."
+                    )
+                } else {
+                    onResult(cachedResult, null)
+                }
             }
     }
 
@@ -158,6 +190,7 @@ class HandymanRepository(
                 documentReference
                     .set(profileData, SetOptions.merge())
                     .addOnSuccessListener {
+                        cachedHandymen = null
                         onResult(true, null)
                     }
                     .addOnFailureListener { exception ->
@@ -230,6 +263,7 @@ class HandymanRepository(
                                 )
                             )
                             .addOnSuccessListener {
+                                cachedHandymen = null
                                 onResult(true, null)
                             }
                             .addOnFailureListener { exception ->
@@ -248,6 +282,30 @@ class HandymanRepository(
                     exception.message ?: "Неуспешно вчитување на профилот."
                 )
             }
+    }
+
+    private fun updateCachedHandyman(
+        handyman: Handyman
+    ) {
+        val currentCache = cachedHandymen ?: return
+
+        cachedHandymen = if (handyman.isPublished) {
+            val existsInCache = currentCache.any { cachedHandyman ->
+                cachedHandyman.id == handyman.id
+            }
+
+            if (existsInCache) {
+                currentCache.map { cachedHandyman ->
+                    if (cachedHandyman.id == handyman.id) handyman else cachedHandyman
+                }
+            } else {
+                currentCache + handyman
+            }
+        } else {
+            currentCache.filterNot { cachedHandyman ->
+                cachedHandyman.id == handyman.id
+            }
+        }
     }
 
     private fun DocumentSnapshot.toHandyman(): Handyman {
